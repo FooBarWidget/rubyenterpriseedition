@@ -34,10 +34,26 @@ find_position_in_bitfield(struct heaps_slot *hs, RVALUE *object,
                           unsigned int *bitfield_index, unsigned int *bitfield_offset)
 {
 	unsigned int index;
-
 	index = object - hs->slot;
-	*bitfield_index = index / (sizeof(int) * 8);
-	*bitfield_offset = index % (sizeof(int) * 8);
+	
+	/*
+	 * We use bit operators to calculate the position in the bit field, whenever possible.
+	 * This only works if sizeof(int) is a multiple of 2, but I don't know of any platform
+	 * on which that is not true.
+	 *
+	 * The INT_BITS_LOG macro's value must be equal to the base 2 logarithm of sizeof(int).
+	 */
+	#ifdef __i386__
+		#define INT_BITS_LOG 5
+	#endif
+	
+	#ifdef INT_BITS_LOG
+		*bitfield_index = index >> INT_BITS_LOG;
+		*bitfield_offset = index & ((1 << INT_BITS_LOG) - 1);
+	#else
+		*bitfield_index = index / (sizeof(int) * 8);
+		*bitfield_offset = index % (sizeof(int) * 8);
+	#endif
 }
 
 
@@ -79,6 +95,14 @@ rb_mark_table_add(RVALUE *object)
 	} else {
 		pointer_set_insert(mark_table, (void *) object);
 	}
+}
+
+static inline void
+rb_mark_table_heap_add(struct heaps_slot *hs, RVALUE *object)
+{
+	unsigned int bitfield_index, bitfield_offset;
+	find_position_in_bitfield(hs, object, &bitfield_index, &bitfield_offset);
+	hs->marks[bitfield_index] |= (1 << bitfield_offset);
 }
 
 static inline int

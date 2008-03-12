@@ -1140,6 +1140,7 @@ gc_sweep()
     int i;
     unsigned long live = 0;
     unsigned long free_min = 0;
+    struct heaps_slot *heap;
 
     for (i = 0; i < heaps_used; i++) {
         free_min += heaps[i].limit;
@@ -1152,9 +1153,11 @@ gc_sweep()
 	/* should not reclaim nodes during compilation
            if yacc's semantic stack is not allocated on machine stack */
 	for (i = 0; i < heaps_used; i++) {
-	    p = heaps[i].slot; pend = p + heaps[i].limit;
+	    heap = &heaps[i];
+
+	    p = heap->slot; pend = heap->slotlimit;
 	    while (p < pend) {
-		if (!rb_mark_table_contains(p) && BUILTIN_TYPE(p) == T_NODE)
+		if (!rb_mark_table_heap_contains(heap, p) && BUILTIN_TYPE(p) == T_NODE)
 		    gc_mark((VALUE)p, 0);
 		p++;
 	    }
@@ -1182,7 +1185,7 @@ gc_sweep()
 		    obj_free((VALUE)p);
 		}
 		if (need_call_final && FL_TEST(p, FL_FINALIZE)) {
-		    rb_mark_table_add(p); /* remain marked */
+		    rb_mark_table_heap_add(heap, p); /* remain marked */
 		    p->as.free.next = final_list;
 		    final_list = p;
 		}
