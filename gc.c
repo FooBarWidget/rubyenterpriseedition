@@ -383,6 +383,7 @@ static struct heaps_slot {
     void *membase;
     RVALUE *slot;
     int limit;
+    RVALUE *slotlimit;
     int *marks;
     int marks_size;
 } *heaps;
@@ -437,6 +438,7 @@ add_heap()
             p = (RVALUE*)((VALUE)p + sizeof(RVALUE) - ((VALUE)p % sizeof(RVALUE)));
         heaps[heaps_used].slot = p;
         heaps[heaps_used].limit = heap_slots;
+        heaps[heaps_used].slotlimit = p + heap_slots;
         heaps[heaps_used].marks_size = (int) (ceil(heap_slots / (sizeof(int) * 8.0)));
         heaps[heaps_used].marks = (int *) calloc(heaps[heaps_used].marks_size, sizeof(int));
 	break;
@@ -652,13 +654,15 @@ static void
 gc_mark_all()
 {
     RVALUE *p, *pend;
+    struct heaps_slot *heap;
     int i;
 
     init_mark_stack();
     for (i = 0; i < heaps_used; i++) {
-	p = heaps[i].slot; pend = p + heaps[i].limit;
+	heap = &heaps[i];
+	p = heap->slot; pend = heap->slotlimit;
 	while (p < pend) {
-	    if (rb_mark_table_contains(p) &&
+	    if (rb_mark_table_heap_contains(heap, p) &&
 		(p->as.basic.flags != FL_ALLOCATED)) {
 		gc_mark_children((VALUE)p, 0);
 	    }
@@ -1169,10 +1173,11 @@ gc_sweep()
 	int n = 0;
 	RVALUE *free = freelist;
 	RVALUE *final = final_list;
+	struct heaps_slot *heap = &heaps[i];
 
-	p = heaps[i].slot; pend = p + heaps[i].limit;
+	p = heap->slot; pend = heap->slotlimit;
 	while (p < pend) {
-	    if (!rb_mark_table_contains(p)) {
+	    if (!rb_mark_table_heap_contains(heap, p)) {
 		if (p->as.basic.flags) {
 		    obj_free((VALUE)p);
 		}
@@ -1198,7 +1203,7 @@ gc_sweep()
 		/* do nothing remain marked */
 	    }
 	    else {
-		rb_mark_table_heap_remove(&heaps[i], p);
+		rb_mark_table_heap_remove(heap, p);
 		live++;
 	    }
 	    p++;
@@ -2012,6 +2017,7 @@ void
 rb_gc_call_finalizer_at_exit()
 {
     RVALUE *p, *pend;
+    struct heaps_slot *heap;
     int i;
 
     /* run finalizers */
@@ -2033,12 +2039,13 @@ rb_gc_call_finalizer_at_exit()
     }
     /* run data object's finalizers */
     for (i = 0; i < heaps_used; i++) {
-	p = heaps[i].slot; pend = p + heaps[i].limit;
+	heap = &heaps[i];
+	p = heap->slot; pend = heap->slotlimit;
 	while (p < pend) {
 	    if (BUILTIN_TYPE(p) == T_DATA &&
 		DATA_PTR(p) && RANY(p)->as.data.dfree) {
 		p->as.free.flags = 0;
-		rb_mark_table_remove(p);
+		rb_mark_table_heap_remove(heap, p);
 		if ((long)RANY(p)->as.data.dfree == -1) {
 		    RUBY_CRITICAL(free(DATA_PTR(p)));
 		}
@@ -2048,7 +2055,7 @@ rb_gc_call_finalizer_at_exit()
 	    }
 	    else if (BUILTIN_TYPE(p) == T_FILE) {
 		p->as.free.flags = 0;
-		rb_mark_table_remove(p);
+		rb_mark_table_heap_remove(heap, p);
 		rb_io_fptr_finalize(RANY(p)->as.file.fptr);
 	    }
 	    p++;

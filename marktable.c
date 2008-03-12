@@ -12,13 +12,13 @@ find_heap_slot_for_object(RVALUE *object)
 
 	/* Look in the cache first. */
 	if (last_heap != NULL && object >= last_heap->slot
-	 && object < last_heap->slot + last_heap->limit) {
+	 && object < last_heap->slotlimit) {
 		return last_heap;
 	}
 	for (i = 0; i < heaps_used; i++) {
 		struct heaps_slot *heap = &heaps[i];
 		if (object >= heap->slot
-		 && object < heap->slot + heap->limit) {
+		 && object < heap->slotlimit) {
 			/* Cache this result. According to empirical evidence, the chance is
 			 * high that the next lookup will be for the same heap slot.
 			 */
@@ -101,6 +101,7 @@ rb_mark_table_heap_contains(struct heaps_slot *hs, RVALUE *object)
 {
 	unsigned int bitfield_index, bitfield_offset;
 	find_position_in_bitfield(hs, object, &bitfield_index, &bitfield_offset);
+	last_heap = hs;
 	return hs->marks[bitfield_index] & (1 << bitfield_offset);
 }
 
