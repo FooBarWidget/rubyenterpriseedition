@@ -8,7 +8,7 @@ static struct heaps_slot *last_heap = NULL;
 static inline struct heaps_slot *
 find_heap_slot_for_object(RVALUE *object)
 {
-	int i;
+	register int i;
 
 	/* Look in the cache first. */
 	if (last_heap != NULL && object >= last_heap->slot
@@ -66,7 +66,7 @@ rb_mark_table_finalize()
 	}
 }
 
-static void
+static inline void
 rb_mark_table_add(RVALUE *object)
 {
 	struct heaps_slot *hs;
@@ -81,7 +81,7 @@ rb_mark_table_add(RVALUE *object)
 	}
 }
 
-static int
+static inline int
 rb_mark_table_contains(RVALUE *object)
 {
 	struct heaps_slot *hs;
@@ -96,7 +96,7 @@ rb_mark_table_contains(RVALUE *object)
 	}
 }
 
-static int
+static inline int
 rb_mark_table_heap_contains(struct heaps_slot *hs, RVALUE *object)
 {
 	unsigned int bitfield_index, bitfield_offset;
@@ -104,7 +104,7 @@ rb_mark_table_heap_contains(struct heaps_slot *hs, RVALUE *object)
 	return hs->marks[bitfield_index] & (1 << bitfield_offset);
 }
 
-static void
+static inline void
 rb_mark_table_remove(RVALUE *object)
 {
 	struct heaps_slot *hs;
@@ -119,7 +119,7 @@ rb_mark_table_remove(RVALUE *object)
 	}
 }
 
-static void
+static inline void
 rb_mark_table_heap_remove(struct heaps_slot *hs, RVALUE *object)
 {
 	unsigned int bitfield_index, bitfield_offset;
@@ -127,19 +127,19 @@ rb_mark_table_heap_remove(struct heaps_slot *hs, RVALUE *object)
 	hs->marks[bitfield_index] &= ~(1 << bitfield_offset);
 }
 
-static void
+static inline void
 rb_mark_table_add_filename(const char *filename)
 {
 	pointer_set_insert(mark_table, (void *) filename);
 }
 
-static int
+static inline int
 rb_mark_table_contains_filename(const char *filename)
 {
 	return pointer_set_contains(mark_table, (void *) filename);
 }
 
-static void
+static inline void
 rb_mark_table_remove_filename(const char *filename)
 {
 	pointer_set_delete(mark_table, (void *) filename);
