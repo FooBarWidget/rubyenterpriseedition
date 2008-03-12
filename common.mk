@@ -36,6 +36,7 @@ OBJS	      = array.$(OBJEXT) \
 		object.$(OBJEXT) \
 		pack.$(OBJEXT) \
 		parse.$(OBJEXT) \
+		pointerset.$(OBJEXT) \
 		process.$(OBJEXT) \
 		prec.$(OBJEXT) \
 		random.$(OBJEXT) \
@@ -374,7 +375,8 @@ file.$(OBJEXT): {$(VPATH)}file.c {$(VPATH)}ruby.h config.h \
 gc.$(OBJEXT): {$(VPATH)}gc.c {$(VPATH)}ruby.h config.h \
   {$(VPATH)}defines.h {$(VPATH)}intern.h {$(VPATH)}missing.h \
   {$(VPATH)}rubysig.h {$(VPATH)}st.h {$(VPATH)}node.h \
-  {$(VPATH)}env.h {$(VPATH)}re.h {$(VPATH)}regex.h
+  {$(VPATH)}env.h {$(VPATH)}re.h {$(VPATH)}regex.h \
+  {$(VPATH)} pointerset.h {$(VPATH)} marktable.c
 hash.$(OBJEXT): {$(VPATH)}hash.c {$(VPATH)}ruby.h config.h \
   {$(VPATH)}defines.h {$(VPATH)}intern.h {$(VPATH)}missing.h \
   {$(VPATH)}st.h {$(VPATH)}util.h {$(VPATH)}rubysig.h
@@ -403,6 +405,7 @@ parse.$(OBJEXT): {$(VPATH)}parse.c {$(VPATH)}ruby.h config.h \
   {$(VPATH)}defines.h {$(VPATH)}intern.h {$(VPATH)}missing.h \
   {$(VPATH)}env.h {$(VPATH)}node.h {$(VPATH)}st.h \
   {$(VPATH)}regex.h {$(VPATH)}util.h {$(VPATH)}lex.c
+pointerset.$(OBJEXT): {$(VPATH)}pointerset.c
 prec.$(OBJEXT): {$(VPATH)}prec.c {$(VPATH)}ruby.h config.h \
   {$(VPATH)}defines.h {$(VPATH)}intern.h {$(VPATH)}missing.h
 process.$(OBJEXT): {$(VPATH)}process.c {$(VPATH)}ruby.h config.h \

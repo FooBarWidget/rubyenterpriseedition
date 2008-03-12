@@ -10155,7 +10155,7 @@ rb_gc_abort_threads()
         return;
 
     FOREACH_THREAD_FROM(main_thread, th) {
-	if (FL_TEST(th->thread, FL_MARK)) continue;
+	if (rb_gc_is_thread_marked(th->thread)) continue;
 	if (th->status == THREAD_STOPPED) {
 	    th->status = THREAD_TO_KILL;
 	    rb_gc_mark(th->thread);

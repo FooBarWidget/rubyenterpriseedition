@@ -441,7 +441,7 @@ struct RBignum {
 #define RFILE(obj)   (R_CAST(RFile)(obj))
 
 #define FL_SINGLETON FL_USER0
-#define FL_MARK      (1<<6)
+#define FL_ALLOCATED (1<<6)
 #define FL_FINALIZE  (1<<7)
 #define FL_TAINT     (1<<8)
 #define FL_EXIVAR    (1<<9)
@@ -523,6 +523,8 @@ void rb_define_attr _((VALUE,const char*,int,int));
 void rb_global_variable _((VALUE*));
 void rb_gc_register_address _((VALUE*));
 void rb_gc_unregister_address _((VALUE*));
+
+int rb_gc_is_thread_marked _((VALUE));
 
 ID rb_intern _((const char*));
 char *rb_id2name _((ID));
