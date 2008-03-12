@@ -2179,6 +2179,7 @@ os_statistics()
     int i;
     int n = 0;
     unsigned int objects = 0;
+    unsigned int total_objects_size = 0;
     unsigned int total_heap_size = 0;
     unsigned int ast_nodes = 0;
     char message[1024];
@@ -2215,17 +2216,20 @@ os_statistics()
 	total_heap_size += (void *) pend - heaps[i].membase;
     }
 
+    total_objects_size = objects * sizeof(RVALUE);
     snprintf(message, sizeof(message),
-        "Number of objects: %d (%d AST nodes, %.2f%%)\n"
-        "Heap slot size: %d\n"
-        "Number of heaps: %d\n"
+        "Number of objects    : %d (%d AST nodes, %.2f%%)\n"
+        "Heap slot size       : %d\n"
+        "Number of heaps      : %d\n"
         "Total size of objects: %.2f KB\n"
-        "Total size of heaps: %.2f KB\n",
+        "Total size of heaps  : %.2f KB (%.2f KB = %.2f%% overhead)\n",
         objects, ast_nodes, ast_nodes * 100 / (double) objects,
         sizeof(RVALUE),
         heaps_used,
-        objects * sizeof(RVALUE) / 1024.0,
-        total_heap_size / 1024.0
+        total_objects_size / 1024.0,
+        total_heap_size / 1024.0,
+        (total_heap_size - total_objects_size) / 1024.0,
+        (total_heap_size - total_objects_size) * 100.0 / total_heap_size
     );
     return rb_str_new2(message);
 }
@@ -2242,7 +2246,6 @@ rb_gc_cow_friendly()
 static VALUE
 rb_gc_test()
 {
-    malloc(1024);
     return Qnil;
 }
 
