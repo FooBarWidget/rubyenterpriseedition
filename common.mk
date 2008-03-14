@@ -405,7 +405,7 @@ parse.$(OBJEXT): {$(VPATH)}parse.c {$(VPATH)}ruby.h config.h \
   {$(VPATH)}defines.h {$(VPATH)}intern.h {$(VPATH)}missing.h \
   {$(VPATH)}env.h {$(VPATH)}node.h {$(VPATH)}st.h \
   {$(VPATH)}regex.h {$(VPATH)}util.h {$(VPATH)}lex.c
-pointerset.$(OBJEXT): {$(VPATH)}pointerset.c
+pointerset.$(OBJEXT): {$(VPATH)}pointerset.c {$(VPATH)}pointerset.h
 prec.$(OBJEXT): {$(VPATH)}prec.c {$(VPATH)}ruby.h config.h \
   {$(VPATH)}defines.h {$(VPATH)}intern.h {$(VPATH)}missing.h
 process.$(OBJEXT): {$(VPATH)}process.c {$(VPATH)}ruby.h config.h \
