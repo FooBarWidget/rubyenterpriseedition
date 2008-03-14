@@ -51,20 +51,30 @@ find_position_in_bitfield(struct heaps_slot *hs, RVALUE *object,
 	 * We use bit operators to calculate the position in the bit field, whenever possible.
 	 * This only works if sizeof(int) is a multiple of 2, but I don't know of any platform
 	 * on which that is not true.
-	 *
-	 * The INT_BITS_LOG macro's value must be equal to the base 2 logarithm of sizeof(int).
 	 */
-	#ifdef __i386__
-		#define INT_BITS_LOG 5
-	#endif
-	
-	#ifdef INT_BITS_LOG
-		*bitfield_index = index >> INT_BITS_LOG;
-		*bitfield_offset = index & ((1 << INT_BITS_LOG) - 1);
-	#else
+	if (sizeof(int) == 4 || sizeof(int) == 8 || sizeof(int) == 16) {
+		int int_bits_log; /* Must be equal to the base 2 logarithm of sizeof(int). */
+		
+		switch (sizeof(int)) {
+		case 4:
+			int_bits_log = 5;
+			break;
+		case 8:
+			int_bits_log = 6;
+			break;
+		case 16:
+			int_bits_log = 7;
+			break;
+		default:
+			int_bits_log = 0; /* Shut up compiler warning. */
+			abort();
+		}
+		*bitfield_index = index >> int_bits_log;
+		*bitfield_offset = index & ((sizeof(int) * 8) - 1);
+	} else {
 		*bitfield_index = index / (sizeof(int) * 8);
 		*bitfield_offset = index % (sizeof(int) * 8);
-	#endif
+	}
 }
 
 
