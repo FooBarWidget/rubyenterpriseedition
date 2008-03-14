@@ -27,6 +27,7 @@ def print_statistics
 end
 
 def start
+	GC.copy_on_write_friendly = true
 	load_rails
 	ObjectSpace.garbage_collect
 	

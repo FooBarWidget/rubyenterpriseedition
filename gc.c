@@ -2241,17 +2241,39 @@ os_statistics()
 }
 
 /*
- * Returns whether this garbage collector is copy-on-write friendly.
+ *  call-seq:
+ *     GC.copy_on_write_friendly?     => true or false
+ *
+ *  Returns whether the garbage collector is copy-on-write friendly.
+ *
+ *  The garbage collector is not copy-on-write friendly by default.
  */
 static VALUE
-rb_gc_cow_friendly()
+rb_gc_copy_on_write_friendly()
 {
-    return Qtrue;
+    if (rb_mark_table_init == rb_fast_mark_table_init) {
+	return Qtrue;
+    } else {
+	return Qfalse;
+    }
 }
 
+/*
+ *  call-seq:
+ *     GC.copy_on_write_friendly = _boolean_
+ *
+ *  Tell the garbage collector whether to be copy-on-write friendly.
+ *  In general, a copy-on-write friendly garbage collector is slightly slower.
+ */
 static VALUE
-rb_gc_test()
+rb_gc_set_copy_on_write_friendly(VALUE self, VALUE val)
 {
+    if (RTEST(val)) {
+	rb_use_bf_mark_table();
+    } else {
+	rb_use_fast_mark_table();
+    }
+    rb_mark_table_init();
     return Qnil;
 }
 
@@ -2271,8 +2293,8 @@ Init_GC()
     rb_define_singleton_method(rb_mGC, "enable", rb_gc_enable, 0);
     rb_define_singleton_method(rb_mGC, "disable", rb_gc_disable, 0);
     rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
-    rb_define_singleton_method(rb_mGC, "cow_friendly?", rb_gc_cow_friendly, 0);
-    rb_define_singleton_method(rb_mGC, "test", rb_gc_test, 0);
+    rb_define_singleton_method(rb_mGC, "copy_on_write_friendly?", rb_gc_copy_on_write_friendly, 0);
+    rb_define_singleton_method(rb_mGC, "copy_on_write_friendly=", rb_gc_set_copy_on_write_friendly, 1);
 
     rb_mObSpace = rb_define_module("ObjectSpace");
     rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
