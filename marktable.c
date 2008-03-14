@@ -1,3 +1,14 @@
+/**
+ * A mark table, used during a mark-and-sweep garbage collection cycle.
+ *
+ * This implementation is somewhat slower than fastmarktable.c, but is
+ * copy-on-write friendly. It stores mark information for objects in a bit
+ * field located at the beginning of the heap. Mark information for filenames
+ * are stored in a pointer set.
+ */
+#ifndef _MARK_TABLE_C_
+#define _MARK_TABLE_C_
+
 #include "pointerset.h"
 
 /* A mark table for filenames and objects that are not on the heap. */
@@ -58,19 +69,21 @@ find_position_in_bitfield(struct heaps_slot *hs, RVALUE *object,
 
 
 static void
-rb_mark_table_init()
+rb_bf_mark_table_init()
 {
-	mark_table = pointer_set_new();
+	if (mark_table == NULL) {
+		mark_table = pointer_set_new();
+	}
 }
 
 static void
-rb_mark_table_prepare()
+rb_bf_mark_table_prepare()
 {
 	last_heap = NULL;
 }
 
 static void
-rb_mark_table_finalize()
+rb_bf_mark_table_finalize()
 {
 	int i;
 
@@ -83,7 +96,7 @@ rb_mark_table_finalize()
 }
 
 static inline void
-rb_mark_table_add(RVALUE *object)
+rb_bf_mark_table_add(RVALUE *object)
 {
 	struct heaps_slot *hs;
 	unsigned int bitfield_index, bitfield_offset;
@@ -98,7 +111,7 @@ rb_mark_table_add(RVALUE *object)
 }
 
 static inline void
-rb_mark_table_heap_add(struct heaps_slot *hs, RVALUE *object)
+rb_bf_mark_table_heap_add(struct heaps_slot *hs, RVALUE *object)
 {
 	unsigned int bitfield_index, bitfield_offset;
 	find_position_in_bitfield(hs, object, &bitfield_index, &bitfield_offset);
@@ -106,7 +119,7 @@ rb_mark_table_heap_add(struct heaps_slot *hs, RVALUE *object)
 }
 
 static inline int
-rb_mark_table_contains(RVALUE *object)
+rb_bf_mark_table_contains(RVALUE *object)
 {
 	struct heaps_slot *hs;
 	unsigned int bitfield_index, bitfield_offset;
@@ -121,7 +134,7 @@ rb_mark_table_contains(RVALUE *object)
 }
 
 static inline int
-rb_mark_table_heap_contains(struct heaps_slot *hs, RVALUE *object)
+rb_bf_mark_table_heap_contains(struct heaps_slot *hs, RVALUE *object)
 {
 	unsigned int bitfield_index, bitfield_offset;
 	find_position_in_bitfield(hs, object, &bitfield_index, &bitfield_offset);
@@ -130,7 +143,7 @@ rb_mark_table_heap_contains(struct heaps_slot *hs, RVALUE *object)
 }
 
 static inline void
-rb_mark_table_remove(RVALUE *object)
+rb_bf_mark_table_remove(RVALUE *object)
 {
 	struct heaps_slot *hs;
 	unsigned int bitfield_index, bitfield_offset;
@@ -145,7 +158,7 @@ rb_mark_table_remove(RVALUE *object)
 }
 
 static inline void
-rb_mark_table_heap_remove(struct heaps_slot *hs, RVALUE *object)
+rb_bf_mark_table_heap_remove(struct heaps_slot *hs, RVALUE *object)
 {
 	unsigned int bitfield_index, bitfield_offset;
 	find_position_in_bitfield(hs, object, &bitfield_index, &bitfield_offset);
@@ -153,19 +166,37 @@ rb_mark_table_heap_remove(struct heaps_slot *hs, RVALUE *object)
 }
 
 static inline void
-rb_mark_table_add_filename(const char *filename)
+rb_bf_mark_table_add_filename(char *filename)
 {
 	pointer_set_insert(mark_table, (void *) filename);
 }
 
 static inline int
-rb_mark_table_contains_filename(const char *filename)
+rb_bf_mark_table_contains_filename(const char *filename)
 {
 	return pointer_set_contains(mark_table, (void *) filename);
 }
 
 static inline void
-rb_mark_table_remove_filename(const char *filename)
+rb_bf_mark_table_remove_filename(char *filename)
 {
 	pointer_set_delete(mark_table, (void *) filename);
 }
+
+static void
+rb_use_bf_mark_table() {
+	rb_mark_table_init          = rb_bf_mark_table_init;
+	rb_mark_table_prepare       = rb_bf_mark_table_prepare;
+	rb_mark_table_finalize      = rb_bf_mark_table_finalize;
+	rb_mark_table_add           = rb_bf_mark_table_add;
+	rb_mark_table_heap_add      = rb_bf_mark_table_heap_add;
+	rb_mark_table_contains      = rb_bf_mark_table_contains;
+	rb_mark_table_heap_contains = rb_bf_mark_table_heap_contains;
+	rb_mark_table_remove        = rb_bf_mark_table_remove;
+	rb_mark_table_heap_remove   = rb_bf_mark_table_heap_remove;
+	rb_mark_table_add_filename  = rb_bf_mark_table_add_filename;
+	rb_mark_table_contains_filename = rb_bf_mark_table_contains_filename;
+	rb_mark_table_remove_filename   = rb_bf_mark_table_remove_filename;
+}
+
+#endif /* _MARK_TABLE_C_ */

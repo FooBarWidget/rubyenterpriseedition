@@ -443,11 +443,12 @@ struct RBignum {
 #define FL_SINGLETON FL_USER0
 #define FL_ALLOCATED (1<<6)
 #define FL_FINALIZE  (1<<7)
+#define FL_MARK      (1<<11)
 #define FL_TAINT     (1<<8)
 #define FL_EXIVAR    (1<<9)
 #define FL_FREEZE    (1<<10)
 
-#define FL_USHIFT    11
+#define FL_USHIFT    12
 
 #define FL_USER0     (1<<(FL_USHIFT+0))
 #define FL_USER1     (1<<(FL_USHIFT+1))

@@ -376,7 +376,8 @@ gc.$(OBJEXT): {$(VPATH)}gc.c {$(VPATH)}ruby.h config.h \
   {$(VPATH)}defines.h {$(VPATH)}intern.h {$(VPATH)}missing.h \
   {$(VPATH)}rubysig.h {$(VPATH)}st.h {$(VPATH)}node.h \
   {$(VPATH)}env.h {$(VPATH)}re.h {$(VPATH)}regex.h \
-  {$(VPATH)} pointerset.h {$(VPATH)} marktable.c
+  {$(VPATH)}pointerset.h {$(VPATH)}marktable.c \
+  {$(VPATH)}fastmarktable.c
 hash.$(OBJEXT): {$(VPATH)}hash.c {$(VPATH)}ruby.h config.h \
   {$(VPATH)}defines.h {$(VPATH)}intern.h {$(VPATH)}missing.h \
   {$(VPATH)}st.h {$(VPATH)}util.h {$(VPATH)}rubysig.h

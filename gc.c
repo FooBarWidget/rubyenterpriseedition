@@ -397,7 +397,9 @@ static int heap_slots = HEAP_MIN_SLOTS;
 
 static RVALUE *himem, *lomem;
 
+#include "marktable.h"
 #include "marktable.c"
+#include "fastmarktable.c"
 
 static void
 add_heap()
@@ -1716,6 +1718,7 @@ void ruby_init_stack(VALUE *addr
 void
 Init_heap()
 {
+    rb_use_fast_mark_table();
     rb_mark_table_init();
     if (!rb_gc_stack_start) {
 	Init_stack(0);
