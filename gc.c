@@ -2246,7 +2246,9 @@ os_statistics()
  *
  *  Returns whether the garbage collector is copy-on-write friendly.
  *
- *  The garbage collector is not copy-on-write friendly by default.
+ *  This method only has meaning on platforms that support the _fork_ system call.
+ *  Please consult the documentation for GC.copy_on_write_friendly= for additional
+ *  notes.
  */
 static VALUE
 rb_gc_copy_on_write_friendly()
@@ -2263,7 +2265,18 @@ rb_gc_copy_on_write_friendly()
  *     GC.copy_on_write_friendly = _boolean_
  *
  *  Tell the garbage collector whether to be copy-on-write friendly.
- *  In general, a copy-on-write friendly garbage collector is slightly slower.
+ *
+ *  Note that this is an implementation detail of the garbage collector. On some Ruby
+ *  implementations, the garbage collector may always be copy-on-write friendly. In that
+ *  case, this method will do nothing. Furthermore, copy-on-write friendliness has no
+ *  meaning on some platforms (such as Microsoft Windows), so setting this flag on those
+ *  platform is futile.
+ *
+ *  Please keep in mind that this flag is only advisory. Do not rely on it for anything
+ *  truly important.
+ *
+ *  In the mainline Ruby implementation, the copy-on-write friendly garbage collector is
+ *  slightly slower the non-copy-on-write friendly version.
  */
 static VALUE
 rb_gc_set_copy_on_write_friendly(VALUE self, VALUE val)
