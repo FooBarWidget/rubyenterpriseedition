@@ -183,20 +183,17 @@ rb_bf_mark_table_remove_filename(char *filename)
 	pointer_set_delete(mark_table, (void *) filename);
 }
 
-static void
-rb_use_bf_mark_table() {
-	rb_mark_table_init          = rb_bf_mark_table_init;
-	rb_mark_table_prepare       = rb_bf_mark_table_prepare;
-	rb_mark_table_finalize      = rb_bf_mark_table_finalize;
-	rb_mark_table_add           = rb_bf_mark_table_add;
-	rb_mark_table_heap_add      = rb_bf_mark_table_heap_add;
-	rb_mark_table_contains      = rb_bf_mark_table_contains;
-	rb_mark_table_heap_contains = rb_bf_mark_table_heap_contains;
-	rb_mark_table_remove        = rb_bf_mark_table_remove;
-	rb_mark_table_heap_remove   = rb_bf_mark_table_heap_remove;
-	rb_mark_table_add_filename  = rb_bf_mark_table_add_filename;
-	rb_mark_table_contains_filename = rb_bf_mark_table_contains_filename;
-	rb_mark_table_remove_filename   = rb_bf_mark_table_remove_filename;
-}
+#define rb_mark_table_init          rb_bf_mark_table_init
+#define rb_mark_table_prepare       rb_bf_mark_table_prepare
+#define rb_mark_table_finalize      rb_bf_mark_table_finalize
+#define rb_mark_table_add           rb_bf_mark_table_add
+#define rb_mark_table_heap_add      rb_bf_mark_table_heap_add
+#define rb_mark_table_contains      rb_bf_mark_table_contains
+#define rb_mark_table_heap_contains rb_bf_mark_table_heap_contains
+#define rb_mark_table_remove        rb_bf_mark_table_remove
+#define rb_mark_table_heap_remove   rb_bf_mark_table_heap_remove
+#define rb_mark_table_add_filename  rb_bf_mark_table_add_filename
+#define rb_mark_table_contains_filename rb_bf_mark_table_contains_filename
+#define rb_mark_table_remove_filename   rb_bf_mark_table_remove_filename
 
 #endif /* _MARK_TABLE_C_ */
