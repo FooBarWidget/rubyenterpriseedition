@@ -19,27 +19,65 @@ static void
 rb_fast_mark_table_finalize() {
 }
 
-#define rb_fast_mark_table_add(object) (object)->as.basic.flags |= FL_MARK
-#define rb_fast_mark_table_heap_add(heap, object) (object)->as.basic.flags |= FL_MARK
-#define rb_fast_mark_table_contains(object) ((object)->as.basic.flags & FL_MARK)
-#define rb_fast_mark_table_heap_contains(heap, object) ((object)->as.basic.flags & FL_MARK)
-#define rb_fast_mark_table_remove(object) ((object)->as.basic.flags &= ~FL_MARK)
-#define rb_fast_mark_table_heap_remove(heap, object) (object)->as.basic.flags &= ~FL_MARK
-#define rb_fast_mark_table_add_filename(filename) (filename)[-1] = 1
-#define rb_fast_mark_table_contains_filename(filename) ((filename)[-1])
-#define rb_fast_mark_table_remove_filename(filename) (filename)[-1] = 0
+static inline void
+rb_fast_mark_table_add(RVALUE *object) {
+	object->as.basic.flags |= FL_MARK;
+}
 
-#define rb_mark_table_init          rb_fast_mark_table_init
-#define rb_mark_table_prepare       rb_fast_mark_table_prepare
-#define rb_mark_table_finalize      rb_fast_mark_table_finalize
-#define rb_mark_table_add           rb_fast_mark_table_add
-#define rb_mark_table_heap_add      rb_fast_mark_table_heap_add
-#define rb_mark_table_contains      rb_fast_mark_table_contains
-#define rb_mark_table_heap_contains rb_fast_mark_table_heap_contains
-#define rb_mark_table_remove        rb_fast_mark_table_remove
-#define rb_mark_table_heap_remove   rb_fast_mark_table_heap_remove
-#define rb_mark_table_add_filename  rb_fast_mark_table_add_filename
-#define rb_mark_table_contains_filename rb_fast_mark_table_contains_filename
-#define rb_mark_table_remove_filename   rb_fast_mark_table_remove_filename
+static inline void
+rb_fast_mark_table_heap_add(struct heaps_slot *hs, RVALUE *object) {
+	object->as.basic.flags |= FL_MARK;
+}
+
+static inline int
+rb_fast_mark_table_contains(RVALUE *object) {
+	return object->as.basic.flags & FL_MARK;
+}
+
+static inline int
+rb_fast_mark_table_heap_contains(struct heaps_slot *hs, RVALUE *object) {
+	return object->as.basic.flags & FL_MARK;
+}
+
+static inline void
+rb_fast_mark_table_remove(RVALUE *object) {
+	object->as.basic.flags &= ~FL_MARK;
+}
+
+static inline void
+rb_fast_mark_table_heap_remove(struct heaps_slot *hs, RVALUE *object) {
+	object->as.basic.flags &= ~FL_MARK;
+}
+
+static inline void
+rb_fast_mark_table_add_filename(char *filename) {
+	filename[-1] = 1;
+}
+
+static inline int
+rb_fast_mark_table_contains_filename(const char *filename) {
+	return filename[-1];
+}
+
+static inline void
+rb_fast_mark_table_remove_filename(char *filename) {
+	filename[-1] = 0;
+}
+
+static void
+rb_use_fast_mark_table() {
+	rb_mark_table_init          = rb_fast_mark_table_init;
+	rb_mark_table_prepare       = rb_fast_mark_table_prepare;
+	rb_mark_table_finalize      = rb_fast_mark_table_finalize;
+	rb_mark_table_add           = rb_fast_mark_table_add;
+	rb_mark_table_heap_add      = rb_fast_mark_table_heap_add;
+	rb_mark_table_contains      = rb_fast_mark_table_contains;
+	rb_mark_table_heap_contains = rb_fast_mark_table_heap_contains;
+	rb_mark_table_remove        = rb_fast_mark_table_remove;
+	rb_mark_table_heap_remove   = rb_fast_mark_table_heap_remove;
+	rb_mark_table_add_filename  = rb_fast_mark_table_add_filename;
+	rb_mark_table_contains_filename = rb_fast_mark_table_contains_filename;
+	rb_mark_table_remove_filename   = rb_fast_mark_table_remove_filename;
+}
 
 #endif /* _FAST_MARK_TABLE_C_ */
