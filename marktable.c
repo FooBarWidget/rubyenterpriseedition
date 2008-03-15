@@ -53,7 +53,7 @@ find_position_in_bitfield(struct heaps_slot *hs, RVALUE *object,
 	 * on which that is not true.
 	 */
 	if (sizeof(int) == 4 || sizeof(int) == 8 || sizeof(int) == 16) {
-		int int_bits_log; /* Must be equal to the base 2 logarithm of sizeof(int). */
+		int int_bits_log; /* Must be equal to the base 2 logarithm of sizeof(int) * 8 */
 		
 		switch (sizeof(int)) {
 		case 4:
