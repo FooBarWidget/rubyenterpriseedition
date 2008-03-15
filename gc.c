@@ -2189,13 +2189,56 @@ os_statistics()
     unsigned int total_heap_size = 0;
     unsigned int ast_nodes = 0;
     char message[1024];
+    unsigned int total_leading_free_slots = 0;
+    unsigned int total_trailing_free_slots = 0;
+    const unsigned int group_size = 16;
+    unsigned int contiguous_free_groups = 0;
 
     for (i = 0; i < heaps_used; i++) {
 	RVALUE *p, *pend;
+	unsigned int leading_free_slots = 0;
+	unsigned int trailing_free_slots = 0;
+	unsigned int slot_index = 0;
+	unsigned int free_slots_in_current_group = 0;
+	enum { BEGIN, MIDDLE, END } mode = BEGIN;
 
 	p = heaps[i].slot;
 	pend = p + heaps[i].limit;
-	for (;p < pend; p++) {
+	for (;p < pend; p++, slot_index++) {
+	    switch (mode) {
+	    case BEGIN:
+		if (p->as.basic.flags) {
+		    mode = MIDDLE;
+		} else {
+		    leading_free_slots++;
+		}
+		break;
+	    case MIDDLE:
+		if (p->as.basic.flags == 0) {
+		    mode = END;
+		    trailing_free_slots++;
+		}
+		break;
+	    case END:
+		if (p->as.basic.flags == 0) {
+		    trailing_free_slots++;
+		} else {
+		    trailing_free_slots = 0;
+		    mode = MIDDLE;
+		}
+		break;
+	    };
+	    
+	    if (slot_index % group_size == 0) {
+		if (free_slots_in_current_group == group_size) {
+		    contiguous_free_groups++;
+		}
+		free_slots_in_current_group = 0;
+	    }
+	    if (p->as.basic.flags == 0) {
+		free_slots_in_current_group++;
+	    }
+	    
 	    if (p->as.basic.flags) {
 		int isAST = 0;
 		switch (TYPE(p)) {
@@ -2220,6 +2263,8 @@ os_statistics()
 	    }
 	}
 	total_heap_size += (void *) pend - heaps[i].membase;
+	total_leading_free_slots += leading_free_slots;
+	total_trailing_free_slots += trailing_free_slots;
     }
 
     total_objects_size = objects * sizeof(RVALUE);
@@ -2228,14 +2273,26 @@ os_statistics()
         "Heap slot size       : %d\n"
         "Number of heaps      : %d\n"
         "Total size of objects: %.2f KB\n"
-        "Total size of heaps  : %.2f KB (%.2f KB = %.2f%% overhead)\n",
+        "Total size of heaps  : %.2f KB (%.2f KB = %.2f%% overhead)\n"
+        "Leading free slots   : %d (%.2f KB = %.2f%%)\n"
+        "Trailing free slots  : %d (%.2f KB = %.2f%%)\n"
+        "Number of contiguous groups of %d slots: %d (%.2f%%)\n",
         objects, ast_nodes, ast_nodes * 100 / (double) objects,
         sizeof(RVALUE),
         heaps_used,
         total_objects_size / 1024.0,
         total_heap_size / 1024.0,
         (total_heap_size - total_objects_size) / 1024.0,
-        (total_heap_size - total_objects_size) * 100.0 / total_heap_size
+        (total_heap_size - total_objects_size) * 100.0 / total_heap_size,
+        total_leading_free_slots,
+        total_leading_free_slots * sizeof(RVALUE) / 1024.0,
+        total_leading_free_slots * 100.0 / (total_heap_size / sizeof(RVALUE)),
+        total_trailing_free_slots,
+        total_trailing_free_slots * sizeof(RVALUE) / 1024.0,
+        total_trailing_free_slots * 100.0 / (total_heap_size / sizeof(RVALUE)),
+        group_size,
+        contiguous_free_groups,
+        (contiguous_free_groups * group_size * 100.0) / (total_heap_size / sizeof(RVALUE))
     );
     return rb_str_new2(message);
 }
