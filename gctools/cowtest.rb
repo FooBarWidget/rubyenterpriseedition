@@ -27,7 +27,9 @@ def print_statistics
 end
 
 def start
-	GC.copy_on_write_friendly = true
+	if GC.respond_to?(:copy_on_write_friendly=)
+		GC.copy_on_write_friendly = true
+	end
 	load_rails
 	ObjectSpace.garbage_collect
 	
