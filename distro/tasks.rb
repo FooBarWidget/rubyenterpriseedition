@@ -31,7 +31,9 @@ task :package do
 		sh "mv rubygems* rubygems"
 	end
 	
-	#sh "rm -rf #{distdir}"
+	ENV['GZIP'] = '--best'
+	sh "tar -czf #{distdir}.tar.gz #{distdir}"
+	sh "rm -rf #{distdir}"
 end
 
 def read_ruby_version
