@@ -1,7 +1,5 @@
 #!/usr/bin/env ruby
 
-# TODO: check for Bison
-
 class Installer
 	ROOT = File.expand_path(File.dirname(__FILE__))
 	PASSENGER_WEBSITE = "http://passenger.phusion.nl"
