@@ -1,0 +1,175 @@
+#!/usr/bin/env ruby
+
+# TODO: check for Bison
+
+class Installer
+	ROOT = File.expand_path(File.dirname(__FILE__))
+	PASSENGER_WEBSITE = "http://passenger.phusion.nl"
+	
+	def start
+		Dir.chdir(ROOT)
+		@version = File.read("version.txt")
+		show_welcome_screen
+		ask_installation_prefix
+		if configure && compile && install && install_rubygems && install_useful_libraries
+			teach_user_how_to_configure_passenger
+			show_finalization_screen
+		else
+			exit 1
+		end
+	ensure
+		reset_terminal_colors
+	end
+
+private
+	def show_welcome_screen
+		color_puts "<banner>Welcome to the EMM-Ruby installer</banner>"
+		color_puts "This installer will help you install Enhanced Memory Management Ruby"
+		color_puts "(EMM-Ruby). Don't worry, none of your system files will be touched if you don't"
+		color_puts "want them to, so there is no risk that things will screw up."
+		puts
+		color_puts "You can expect this from the installation process:"
+		puts
+		color_puts "  <b>1.</b> EMM-Ruby will be compiled and optimized for speed for this system."
+		color_puts "  <b>2.</b> Ruby on Rails will be installed for EMM-Ruby. [1]"
+		color_puts "  <b>3.</b> You will learn how to tell Passenger to use EMM-Ruby instead of regular"
+		color_puts "     Ruby."
+		puts
+		color_puts "<b>Press Enter to continue, or Ctrl-C to abort.</b>"
+		wait
+	end
+	
+	def ask_installation_prefix
+		line
+		color_puts "<banner>Target directory</banner>"
+		puts
+		puts "Where would you like to install EMM-Ruby to?"
+		puts "(All EMM-Ruby files will be put inside that directory.)"
+		puts
+		old_prefix = File.read("source/.prefix.txt") rescue nil
+		@prefix = query_directory(old_prefix || "/opt/emm-ruby-#{@version}")
+	end
+	
+	def configure
+		line
+		color_puts "<banner>Compiling and optimizing EMM-Ruby</banner>"
+		color_puts "In the mean time, feel free to grab a cup of coffee.\n\n"
+		Dir.chdir("source") do
+			old_prefix = File.read(".prefix.txt") rescue nil
+			if old_prefix != @prefix || !File.exist?("Makefile")
+				File.open(".prefix.txt", "w") do |f|
+					f.write(@prefix)
+				end
+				puts "./configure --prefix=#{@prefix}"
+				if !system("./configure --prefix=#{@prefix}")
+					return false
+				end
+			else
+				color_puts "<green>It looks like the source is already configured.</green>"
+				color_puts "<green>Skipping configure script...</green>"
+			end
+			return true
+		end
+	end
+	
+	def compile
+		Dir.chdir("source") do
+			return system("make")
+		end
+	end
+	
+	def install
+		Dir.chdir("source") do
+			return system("make install")
+		end
+	end
+	
+	def install_rubygems
+		Dir.chdir("rubygems") do
+			line
+			color_puts "<banner>Installing RubyGems...</banner>"
+			return system("#{@prefix}/bin/ruby setup.rb")
+		end
+	end
+	
+	def install_useful_libraries
+		line
+		color_puts "<banner>Installing useful libraries...</banner>"
+		return system("#{@prefix}/bin/ruby #{@prefix}/bin/gem install rails mongrel fastthread mysql")
+	end
+	
+	def teach_user_how_to_configure_passenger
+		line
+		color_puts "<banner>EMM-Ruby is successfully installed!</banner>"
+		puts
+		color_puts "EMM-Ruby has been installed to <b>#{@prefix}</b>"
+		puts
+		color_puts "If you're using <yellow>Phusion Passenger (#{PASSENGER_WEBSITE})</yellow>, and you want"
+		color_puts "it to use EMM-Ruy, then edit your Apache configuration file, and change the"
+		color_puts "'RailsRuby' option:"
+		puts
+		color_puts "  <b>RailsRuby #{@prefix}/bin/ruby</b>"
+		puts
+		color_puts "<b>Press ENTER to continue.</b>"
+		wait
+	end
+	
+	def show_finalization_screen
+	end
+
+private
+	DEFAULT_TERMINAL_COLORS = "\e[0m"
+
+	def color_puts(message)
+		puts substitute_color_tags(message)
+	end
+	
+	def color_print(message)
+		print substitute_color_tags(message)
+	end
+
+	def substitute_color_tags(data)
+		data = data.gsub(%r{<b>(.*?)</b>}m, "\e[1m\\1#{DEFAULT_TERMINAL_COLORS}")
+		data.gsub!(%r{<red>(.*?)</red>}m, "\e[1m\e[31m\\1#{DEFAULT_TERMINAL_COLORS}")
+		data.gsub!(%r{<green>(.*?)</green>}m, "\e[1m\e[32m\\1#{DEFAULT_TERMINAL_COLORS}")
+		data.gsub!(%r{<yellow>(.*?)</yellow>}m, "\e[1m\e[33m\\1#{DEFAULT_TERMINAL_COLORS}")
+		data.gsub!(%r{<banner>(.*?)</banner>}m, "\e[33m\e[44m\e[1m\\1#{DEFAULT_TERMINAL_COLORS}")
+		return data
+	end
+	
+	def reset_terminal_colors
+		STDOUT.write("\e[0m")
+		STDOUT.flush
+	end
+	
+	def line
+		puts "--------------------------------------------"
+	end
+	
+	def wait
+		STDIN.readline
+	rescue Interrupt
+		exit 2
+	end
+	
+	def query_directory(default = "")
+		while true
+			STDOUT.write("[#{default}] : ")
+			STDOUT.flush
+			input = STDIN.readline.strip
+			if input.empty?
+				return default
+			elsif input !~ /^\//
+				color_puts "<red>Please specify an absolute directory.</red>"
+			elsif input =~ / /
+				color_puts "<red>The directory name may not contain spaces.</red>"
+			else
+				return input
+			end
+		end
+	rescue Interrupt, EOFError
+		exit 2
+	end
+end
+
+Installer.new.start
