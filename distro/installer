@@ -83,7 +83,29 @@ private
 	
 	def install
 		Dir.chdir("source") do
-			return system("make install")
+			if system("make install")
+				return true
+			else
+				puts
+				line
+				color_puts "<red>Cannot install EMM-Ruby</red>"
+				puts
+				color_puts "This installer was able to compile EMM-Ruby, but " <<
+					"could not install the files to"
+				color_puts "<b>#{@prefix}</b>."
+				puts
+				if Process.uid == 0
+					color_puts "This installer probably doesn't have permission " <<
+						"to write to that folder, even though it's running as " <<
+						"root. Please fix the permissions, and re-run this installer."
+				else
+					color_puts "This installer probably doesn't have permission to " <<
+						"write to that folder, because it's running as " <<
+						"<b>#{`whoami`.strip}</b>. Please re-run this installer " <<
+						"as <b>root</b>."
+				end
+				return false
+			end
 		end
 	end
 	
