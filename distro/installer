@@ -5,6 +5,7 @@
 class Installer
 	ROOT = File.expand_path(File.dirname(__FILE__))
 	PASSENGER_WEBSITE = "http://passenger.phusion.nl"
+	EMM_RUBY_WEBSITE = "http://emm-ruby.phusion.nl"
 	
 	def start
 		Dir.chdir(ROOT)
@@ -12,7 +13,6 @@ class Installer
 		show_welcome_screen
 		ask_installation_prefix
 		if configure && compile && install && install_rubygems && install_useful_libraries
-			teach_user_how_to_configure_passenger
 			show_finalization_screen
 		else
 			exit 1
@@ -74,6 +74,9 @@ private
 	
 	def compile
 		Dir.chdir("source") do
+			# No idea why, but sometimes 'make' fails unless we do this.
+			system("mkdir -p .ext/common")
+			
 			return system("make")
 		end
 	end
@@ -88,33 +91,33 @@ private
 		Dir.chdir("rubygems") do
 			line
 			color_puts "<banner>Installing RubyGems...</banner>"
-			return system("#{@prefix}/bin/ruby setup.rb")
+			return system("#{@prefix}/bin/ruby setup.rb --no-ri --no-rdoc")
 		end
 	end
 	
 	def install_useful_libraries
 		line
 		color_puts "<banner>Installing useful libraries...</banner>"
-		return system("#{@prefix}/bin/ruby #{@prefix}/bin/gem install rails mongrel fastthread mysql")
+		gem = "#{@prefix}/bin/ruby #{@prefix}/bin/gem"
+		return system("#{gem} install --no-rdoc --no-ri rails mongrel fastthread mysql")
 	end
 	
-	def teach_user_how_to_configure_passenger
+	def show_finalization_screen
 		line
 		color_puts "<banner>EMM-Ruby is successfully installed!</banner>"
-		puts
-		color_puts "EMM-Ruby has been installed to <b>#{@prefix}</b>"
-		puts
 		color_puts "If you're using <yellow>Phusion Passenger (#{PASSENGER_WEBSITE})</yellow>, and you want"
 		color_puts "it to use EMM-Ruy, then edit your Apache configuration file, and change the"
 		color_puts "'RailsRuby' option:"
 		puts
 		color_puts "  <b>RailsRuby #{@prefix}/bin/ruby</b>"
 		puts
-		color_puts "<b>Press ENTER to continue.</b>"
-		wait
-	end
-	
-	def show_finalization_screen
+		color_puts "If you ever want to uninstall EMM-Ruby, simply remove this directory:"
+		puts
+		color_puts "  <b>#{@prefix}</b>"
+		puts
+		color_puts "If you have any questions, feel free to visit our website:"
+		puts
+		color_puts "  <b>#{EMM_RUBY_WEBSITE}</b>"
 	end
 
 private
