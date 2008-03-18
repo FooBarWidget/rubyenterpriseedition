@@ -2187,12 +2187,14 @@ os_statistics()
     unsigned int objects = 0;
     unsigned int total_objects_size = 0;
     unsigned int total_heap_size = 0;
+    unsigned int total_heap_slots = 0;
     unsigned int ast_nodes = 0;
     char message[1024];
     unsigned int total_leading_free_slots = 0;
     unsigned int total_trailing_free_slots = 0;
     const unsigned int group_size = 16;
     unsigned int contiguous_free_groups = 0;
+    unsigned int terminal_objects = 0; /* Number of objects that cannot possibly refer to other objects. */
 
     for (i = 0; i < heaps_used; i++) {
 	RVALUE *p, *pend;
@@ -2253,6 +2255,13 @@ os_statistics()
 		        isAST = 1;
 		        break;
 		    }
+		  case T_FILE:
+		  case T_REGEXP:
+		  case T_FLOAT:
+		  case T_BIGNUM:
+		  case T_BLKTAG:
+		    terminal_objects++;
+		    break;
 		  default:
 		    break;
 		}
@@ -2268,6 +2277,7 @@ os_statistics()
     }
 
     total_objects_size = objects * sizeof(RVALUE);
+    total_heap_slots = total_heap_size / sizeof(RVALUE);
     snprintf(message, sizeof(message),
         "Number of objects    : %d (%d AST nodes, %.2f%%)\n"
         "Heap slot size       : %d\n"
@@ -2276,7 +2286,8 @@ os_statistics()
         "Total size of heaps  : %.2f KB (%.2f KB = %.2f%% overhead)\n"
         "Leading free slots   : %d (%.2f KB = %.2f%%)\n"
         "Trailing free slots  : %d (%.2f KB = %.2f%%)\n"
-        "Number of contiguous groups of %d slots: %d (%.2f%%)\n",
+        "Number of contiguous groups of %d slots: %d (%.2f%%)\n"
+        "Number of terminal objects: %d (%.2f%%)\n",
         objects, ast_nodes, ast_nodes * 100 / (double) objects,
         sizeof(RVALUE),
         heaps_used,
@@ -2286,13 +2297,15 @@ os_statistics()
         (total_heap_size - total_objects_size) * 100.0 / total_heap_size,
         total_leading_free_slots,
         total_leading_free_slots * sizeof(RVALUE) / 1024.0,
-        total_leading_free_slots * 100.0 / (total_heap_size / sizeof(RVALUE)),
+        total_leading_free_slots * 100.0 / total_heap_slots,
         total_trailing_free_slots,
         total_trailing_free_slots * sizeof(RVALUE) / 1024.0,
-        total_trailing_free_slots * 100.0 / (total_heap_size / sizeof(RVALUE)),
+        total_trailing_free_slots * 100.0 / total_heap_slots,
         group_size,
         contiguous_free_groups,
-        (contiguous_free_groups * group_size * 100.0) / (total_heap_size / sizeof(RVALUE))
+        (contiguous_free_groups * group_size * 100.0) / total_heap_slots,
+        terminal_objects,
+        terminal_objects * 100.0 / total_heap_slots
     );
     return rb_str_new2(message);
 }
