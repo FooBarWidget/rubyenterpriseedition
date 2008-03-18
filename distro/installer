@@ -53,6 +53,13 @@ private
 		color_puts "<banner>Compiling and optimizing EMM-Ruby</banner>"
 		color_puts "In the mean time, feel free to grab a cup of coffee.\n\n"
 		Dir.chdir("source") do
+			# If nothing has been compiled yet, then update the timestamps of the files.
+			# This prevents 'configure' and 'make' from thinking that the 'configure'
+			# script must be regenerated.
+			if Dir["*.o"].empty?
+				system("touch *")
+			end
+			
 			old_prefix = File.read(".prefix.txt") rescue nil
 			if old_prefix != @prefix || !File.exist?("Makefile")
 				File.open(".prefix.txt", "w") do |f|
@@ -119,7 +126,15 @@ private
 		line
 		color_puts "<banner>Installing useful libraries...</banner>"
 		gem = "#{@prefix}/bin/ruby #{@prefix}/bin/gem"
-		return system("#{gem} install --no-rdoc --no-ri rails mongrel fastthread mysql")
+		status = system("#{gem} install --no-rdoc --no-ri --backtrace rails mongrel fastthread")
+		
+		# These gems may fail to install if MySQL and SQLite headers aren't installed.
+		# But we continue anyway.
+		system("#{gem} install --no-rdoc --no-ri --backtrace mysql")
+		system("#{gem} install --no-rdoc --no-ri --backtrace sqlite3-ruby")
+		system("#{gem} install --no-rdoc --no-ri --backtrace postgres")
+		
+		return status
 	end
 	
 	def show_finalization_screen
@@ -184,7 +199,7 @@ private
 				return default
 			elsif input !~ /^\//
 				color_puts "<red>Please specify an absolute directory.</red>"
-			elsif input =~ / /
+			elsif input =~ /\s/
 				color_puts "<red>The directory name may not contain spaces.</red>"
 			else
 				return input
