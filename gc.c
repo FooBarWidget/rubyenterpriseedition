@@ -401,6 +401,8 @@ static RVALUE *himem, *lomem;
 #include "marktable.c"
 #include "fastmarktable.c"
 
+static int gc_cycles = 0;
+
 static void
 add_heap()
 {
@@ -1529,6 +1531,7 @@ garbage_collect()
 
     gc_sweep();
     rb_mark_table_finalize();
+    gc_cycles++;
 }
 
 void
@@ -2281,6 +2284,7 @@ os_statistics()
     snprintf(message, sizeof(message),
         "Number of objects    : %d (%d AST nodes, %.2f%%)\n"
         "Heap slot size       : %d\n"
+        "GC cycles so far     : %d\n"
         "Number of heaps      : %d\n"
         "Total size of objects: %.2f KB\n"
         "Total size of heaps  : %.2f KB (%.2f KB = %.2f%% overhead)\n"
@@ -2290,6 +2294,7 @@ os_statistics()
         "Number of terminal objects: %d (%.2f%%)\n",
         objects, ast_nodes, ast_nodes * 100 / (double) objects,
         sizeof(RVALUE),
+        gc_cycles,
         heaps_used,
         total_objects_size / 1024.0,
         total_heap_size / 1024.0,
