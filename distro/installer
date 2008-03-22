@@ -2,8 +2,8 @@
 
 class Installer
 	ROOT = File.expand_path(File.dirname(__FILE__))
-	PASSENGER_WEBSITE = "http://passenger.phusion.nl"
-	EMM_RUBY_WEBSITE = "http://emm-ruby.phusion.nl"
+	PASSENGER_WEBSITE = "http://www.modrails.com"
+	EMM_RUBY_WEBSITE = "http://www.rubyenterpriseedition.com"
 	
 	def start
 		Dir.chdir(ROOT)
@@ -21,17 +21,18 @@ class Installer
 
 private
 	def show_welcome_screen
-		color_puts "<banner>Welcome to the EMM-Ruby installer</banner>"
-		color_puts "This installer will help you install Enhanced Memory Management Ruby"
-		color_puts "(EMM-Ruby). Don't worry, none of your system files will be touched if you don't"
-		color_puts "want them to, so there is no risk that things will screw up."
+		color_puts "<banner>Welcome to the Ruby Enterprise Edition installer</banner>"
+		color_puts "This installer will help you install Ruby Enterprise Edition #{@version}."
+		color_puts "Don't worry, none of your system files will be touched if you don't want them"
+		color_puts "to, so there is no risk that things will screw up."
 		puts
 		color_puts "You can expect this from the installation process:"
 		puts
-		color_puts "  <b>1.</b> EMM-Ruby will be compiled and optimized for speed for this system."
-		color_puts "  <b>2.</b> Ruby on Rails will be installed for EMM-Ruby. [1]"
-		color_puts "  <b>3.</b> You will learn how to tell Passenger to use EMM-Ruby instead of regular"
-		color_puts "     Ruby."
+		color_puts "  <b>1.</b> Ruby Enterprise Edition will be compiled and optimized for speed for this"
+		color_puts "     system."
+		color_puts "  <b>2.</b> Ruby on Rails will be installed for Ruby Enterprise Edition."
+		color_puts "  <b>3.</b> You will learn how to tell Passenger to use Ruby Enterprise Edition"
+		color_puts "     instead of regular Ruby."
 		puts
 		color_puts "<b>Press Enter to continue, or Ctrl-C to abort.</b>"
 		wait
@@ -41,16 +42,16 @@ private
 		line
 		color_puts "<banner>Target directory</banner>"
 		puts
-		puts "Where would you like to install EMM-Ruby to?"
-		puts "(All EMM-Ruby files will be put inside that directory.)"
+		puts "Where would you like to install Ruby Enterprise Edition to?"
+		puts "(All Ruby Enterprise Edition files will be put inside that directory.)"
 		puts
 		old_prefix = File.read("source/.prefix.txt") rescue nil
-		@prefix = query_directory(old_prefix || "/opt/emm-ruby-#{@version}")
+		@prefix = query_directory(old_prefix || "/opt/ruby-enterprise-#{@version}")
 	end
 	
 	def configure
 		line
-		color_puts "<banner>Compiling and optimizing EMM-Ruby</banner>"
+		color_puts "<banner>Compiling and optimizing Ruby Enterprise Edition</banner>"
 		color_puts "In the mean time, feel free to grab a cup of coffee.\n\n"
 		Dir.chdir("source") do
 			# If nothing has been compiled yet, then update the timestamps of the files.
@@ -93,11 +94,10 @@ private
 			else
 				puts
 				line
-				color_puts "<red>Cannot install EMM-Ruby</red>"
+				color_puts "<red>Cannot install Ruby Enterprise Edition</red>"
 				puts
-				color_puts "This installer was able to compile EMM-Ruby, but " <<
-					"could not install the files to"
-				color_puts "<b>#{@prefix}</b>."
+				color_puts "This installer was able to compile Ruby Enterprise Edition, but could not"
+				color_puts "install the files to <b>#{@prefix}</b>."
 				puts
 				if Process.uid == 0
 					color_puts "This installer probably doesn't have permission " <<
@@ -139,14 +139,15 @@ private
 	
 	def show_finalization_screen
 		line
-		color_puts "<banner>EMM-Ruby is successfully installed!</banner>"
-		color_puts "If you're using <yellow>Phusion Passenger (#{PASSENGER_WEBSITE})</yellow>, and you want"
-		color_puts "it to use EMM-Ruy, then edit your Apache configuration file, and change the"
-		color_puts "'RailsRuby' option:"
+		color_puts "<banner>Ruby Enterprise Edition is successfully installed!</banner>"
+		color_puts "If you're using <yellow>Phusion Passenger (#{PASSENGER_WEBSITE})</yellow>,"
+		color_puts "and you want it to use Ruby Enterprise Edition, then edit your Apache"
+		color_puts "configuration file, and change the 'RailsRuby' option:"
 		puts
 		color_puts "  <b>RailsRuby #{@prefix}/bin/ruby</b>"
 		puts
-		color_puts "If you ever want to uninstall EMM-Ruby, simply remove this directory:"
+		color_puts "If you ever want to uninstall Ruby Enterprise Edition, simply remove this"
+		color_puts "directory:"
 		puts
 		color_puts "  <b>#{@prefix}</b>"
 		puts

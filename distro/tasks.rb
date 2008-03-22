@@ -1,9 +1,9 @@
-EMM_RUBY_VERSION = "20080317"
+REE_VERSION = "20080317"
 
 desc "Create a distribution package"
 task :package do
 	ruby_version = read_ruby_version
-	distdir = "emm-ruby-#{ruby_version}-#{EMM_RUBY_VERSION}"
+	distdir = "ruby-enterprise-#{ruby_version}-#{REE_VERSION}"
 	sh "rm -rf #{distdir}"
 	sh "mkdir #{distdir}"
 	
@@ -17,7 +17,7 @@ task :package do
 	
 	sh "cp distro/installer #{distdir}/"
 	File.open("#{distdir}/version.txt", "w") do |f|
-		f.write("#{ruby_version}-#{EMM_RUBY_VERSION}")
+		f.write("#{ruby_version}-#{REE_VERSION}")
 	end
 	
 	if Dir["distro/rubygems*.tgz"].empty?
