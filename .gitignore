@@ -1,6 +1,7 @@
 distro/rubygems*.tgz
 ruby-enterprise-*.tar.gz
 fakeroot
+!distro/runtime/*/ruby
 .ext
 .installed.list
 *.o
