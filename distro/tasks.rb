@@ -15,7 +15,7 @@ task :package do
 		system 'bison', '-y', '-o', 'parse.c', 'parse.y'
 	end
 	
-	sh "cp distro/installer #{distdir}/"
+	sh "cp distro/installer distro/installer.rb #{distdir}/"
 	File.open("#{distdir}/version.txt", "w") do |f|
 		f.write("#{ruby_version}-#{REE_VERSION}")
 	end
