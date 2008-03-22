@@ -16,6 +16,7 @@ task :package do
 	end
 	
 	sh "cp distro/installer distro/installer.rb #{distdir}/"
+	sh "cd #{distdir} && ln -s source/distro/runtime ."
 	File.open("#{distdir}/version.txt", "w") do |f|
 		f.write("#{ruby_version}-#{REE_VERSION}")
 	end

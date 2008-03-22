@@ -3,6 +3,7 @@ dir=`dirname "$0"`
 cd "$dir"
 platform="`uname`-`uname -m`"
 if test -f "runtime/$platform/ruby"; then
+	#echo "Using 'runtime/$platform/ruby'"
 	exec "runtime/$platform/ruby" installer.rb
 else
 	exec ruby installer.rb
