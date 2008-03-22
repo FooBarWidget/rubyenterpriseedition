@@ -36,7 +36,7 @@ parse.c
 prelude.c
 rbconfig.rb
 revision.h
-ruby
+/ruby
 transdb.h
 vm.inc
 vmtc.inc
