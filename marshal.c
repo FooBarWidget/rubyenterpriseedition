@@ -83,6 +83,7 @@ shortlen(len, ds)
 static ID s_dump, s_load, s_mdump, s_mload;
 static ID s_dump_data, s_load_data, s_alloc;
 static ID s_getc, s_read, s_write, s_binmode;
+static ID id_rehash;
 
 struct dump_arg {
     VALUE obj;
@@ -90,6 +91,7 @@ struct dump_arg {
     st_table *symbols;
     st_table *data;
     int taint;
+    int canonical;
 };
 
 struct dump_call_arg {
@@ -621,6 +623,9 @@ w_object(obj, arg, limit)
 		w_byte(TYPE_HASH_DEF, arg);
 	    }
 	    w_long(RHASH(obj)->tbl->num_entries, arg);
+	    if (arg->canonical) {
+		rb_funcall(obj, id_rehash, 0);
+	    }
 	    rb_hash_foreach(obj, hash_each, (st_data_t)&c_arg);
 	    if (!NIL_P(RHASH(obj)->ifnone)) {
 		w_object(RHASH(obj)->ifnone, arg, limit);
@@ -700,13 +705,21 @@ dump_ensure(arg)
 
 /*
  * call-seq:
- *      dump( obj [, anIO] , limit=--1 ) => anIO
+ *      dump( obj [, anIO] , limit=-1 , canonical=false ) => anIO
  *
- * Serializes obj and all descendent objects. If anIO is
- * specified, the serialized data will be written to it, otherwise the
- * data will be returned as a String. If limit is specified, the
- * traversal of subobjects will be limited to that depth. If limit is
- * negative, no checking of depth will be performed.
+ * Serializes obj and all descendent objects.
+ *
+ * If +anIO+ is specified, the serialized data will be written to it,
+ * otherwise the data will be returned as a String.
+ *
+ * If +limit+ is specified, the traversal of subobjects will be limited
+ * to that depth. If limit is negative, no checking of depth will be
+ * performed.
+ *
+ * If +canonical+ is true, then Hash entries will always be stored in
+ * the same order, regardless of the Hash's internal state. This allows
+ * you to compare data structures by comparing their marshalled
+ * representations.
  *
  *     class Klass
  *       def initialize(str)
@@ -729,17 +742,30 @@ marshal_dump(argc, argv)
     int argc;
     VALUE* argv;
 {
-    VALUE obj, port, a1, a2;
+    VALUE obj, port, a1, a2, a3;
     int limit = -1;
+    int canonical = 0;
     struct dump_arg arg;
     struct dump_call_arg c_arg;
 
     port = Qnil;
-    rb_scan_args(argc, argv, "12", &obj, &a1, &a2);
-    if (argc == 3) {
+    rb_scan_args(argc, argv, "13", &obj, &a1, &a2, &a3);
+    if (argc == 4) {
+	canonical = RTEST(a3);
 	if (!NIL_P(a2)) limit = NUM2INT(a2);
 	if (NIL_P(a1)) goto type_error;
 	port = a1;
+    }
+    else if (argc == 3) {
+	if (FIXNUM_P(a2)) {
+	   limit = NUM2INT(a2);
+	   if (NIL_P(a1)) goto type_error;
+	   port = a1;
+	} else {
+	   canonical = RTEST(a2);
+	   limit = NUM2INT(a1);
+	   port = Qnil;
+	}
     }
     else if (argc == 2) {
 	if (FIXNUM_P(a1)) limit = FIX2INT(a1);
@@ -766,6 +792,7 @@ marshal_dump(argc, argv)
     arg.symbols = st_init_numtable();
     arg.data    = st_init_numtable();
     arg.taint   = Qfalse;
+    arg.canonical = canonical;
     c_arg.obj   = obj;
     c_arg.arg   = &arg;
     c_arg.limit = limit;
@@ -1480,6 +1507,7 @@ Init_marshal()
     s_read = rb_intern("read");
     s_write = rb_intern("write");
     s_binmode = rb_intern("binmode");
+    id_rehash = rb_intern("rehash");
 
     rb_define_module_function(rb_mMarshal, "dump", marshal_dump, -1);
     rb_define_module_function(rb_mMarshal, "load", marshal_load, -1);
