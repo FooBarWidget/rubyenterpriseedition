@@ -171,17 +171,75 @@ static int during_gc;
 static int need_call_final = 0;
 static st_table *finalizer_table = 0;
 
-static int debugging = 0;
 
-#define DEBUG_POINT(message) \
-	do { \
-		if (debugging) { \
-			printf("%s\n", message); \
-			getchar(); \
-		} \
-	} while (0)
+/************************************************************
+ * Heap and copy-on-write debugging support functions
+ ************************************************************/
+
+/* Compound structure, containing debugging options. */
+static struct {
+    FILE *terminal;
+    
+    /* Whether to allocate Ruby heaps by mmapping a file. This makes it easier to see how many
+     * bytes in heaps have been made dirty, using memory analysis tools.
+     */
+    int alloc_heap_with_file;
+
+    /* Whether to ask the user to press Enter, before garbage collection starts.
+     * Can be used to check how many pages are made dirty by the garbage collector.
+     */
+    int prompt_before_gc;
+    
+    /* Whether to ask the user to press Enter before the sweep phase of the garbage
+     * collector starts. */
+    int prompt_before_sweep;
+    
+    /* Whether to ask the user to press Enter after the sweep phase of the garbage
+     * collector starts. */
+    int prompt_after_sweep;
+} debug_options;
 
 #define OPTION_ENABLED(name) (getenv((name)) && *getenv((name)) && *getenv((name)) != '0')
+
+static VALUE
+rb_gc_init_debugging()
+{
+    if (debug_options.terminal != NULL) {
+	fclose(debug_options.terminal);
+	debug_options.terminal = NULL;
+    }
+    if (getenv("RD_TERMINAL")) {
+	debug_options.terminal = fopen(getenv("RD_TERMINAL"), "a+");
+	if (debug_options.terminal == NULL) {
+	    int e = errno;
+	    fprintf(stderr, "Cannot open %s: %s (%d)\n", getenv("RD_TERMINAL"), strerror(e), e);
+	    fflush(stderr);
+	}
+    }
+    debug_options.alloc_heap_with_file = OPTION_ENABLED("RD_ALLOC_HEAP_WITH_FILE");
+    debug_options.prompt_before_gc     = OPTION_ENABLED("RD_PROMPT_BEFORE_GC");
+    debug_options.prompt_before_sweep  = OPTION_ENABLED("RD_PROMPT_BEFORE_SWEEP");
+    debug_options.prompt_after_sweep   = OPTION_ENABLED("RD_PROMPT_AFTER_SWEEP");
+    return Qnil;
+}
+
+#define debug_prompt(prompt) \
+    do { \
+	if (debug_options.terminal != NULL) { \
+	    fprintf(debug_options.terminal, prompt); \
+	    fflush(debug_options.terminal); \
+	    getc(debug_options.terminal); \
+	} else { \
+	    fprintf(stderr, prompt); \
+	    fflush(stderr); \
+	    getchar(); \
+	} \
+    } while (0)
+
+
+/************************************
+ * Heap (de)allocation functions
+ ************************************/
 
 typedef struct {
     int fd;
@@ -212,7 +270,7 @@ alloc_ruby_heap_with_file(size_t size)
 static void *
 alloc_ruby_heap(size_t size)
 {
-    if (debugging || OPTION_ENABLED("RUBY_GC_ALLOC_HEAP_WITH_FILE")) {
+    if (debug_options.alloc_heap_with_file) {
 	return alloc_ruby_heap_with_file(size);
     } else {
 	return malloc(size);
@@ -230,18 +288,15 @@ free_ruby_heap_with_file(void *heap)
 static void
 free_ruby_heap(void *heap)
 {
-    if (debugging || OPTION_ENABLED("RUBY_GC_ALLOC_HEAP_WITH_FILE")) {
+    if (debug_options.alloc_heap_with_file) {
 	free_ruby_heap_with_file(heap);
     } else {
 	free(heap);
     }
 }
 
-static void
-init_debugging()
-{
-    debugging = OPTION_ENABLED("RUBY_GC_DEBUG");
-}
+
+/*******************************************************************/
 
 
 /*
@@ -1435,10 +1490,6 @@ garbage_collect()
     jmp_buf save_regs_gc_mark;
     SET_STACK_END;
 
-    if (debugging) {
-        fprintf(stderr, "*** Ruby GC: started garbage collection\n");
-    }
-
 #ifdef HAVE_NATIVETHREAD
     if (!is_ruby_native_thread()) {
 	rb_bug("cross-thread violation on rb_gc()");
@@ -1453,6 +1504,9 @@ garbage_collect()
     if (during_gc) return;
     during_gc++;
 
+    if (debug_options.prompt_before_gc) {
+	debug_prompt("Press Enter to initiate garbage collection.\n");
+    }
     rb_mark_table_prepare();
     init_mark_stack();
 
@@ -1529,7 +1583,13 @@ garbage_collect()
 	rb_gc_abort_threads();
     } while (!MARK_STACK_EMPTY);
 
+    if (debug_options.prompt_before_sweep) {
+	debug_prompt("Press Enter to initiate sweeping phase.\n");
+    }
     gc_sweep();
+    if (debug_options.prompt_after_sweep) {
+	debug_prompt("Press Enter to confirm finalization of sweeping phase.\n");
+    }
     rb_mark_table_finalize();
     gc_cycles++;
 }
@@ -1721,6 +1781,7 @@ void ruby_init_stack(VALUE *addr
 void
 Init_heap()
 {
+    rb_gc_init_debugging();
     rb_use_fast_mark_table();
     rb_mark_table_init();
     if (!rb_gc_stack_start) {
@@ -2412,6 +2473,4 @@ Init_GC()
     rb_define_method(rb_mKernel, "hash", rb_obj_id, 0);
     rb_define_method(rb_mKernel, "__id__", rb_obj_id, 0);
     rb_define_method(rb_mKernel, "object_id", rb_obj_id, 0);
-    
-    init_debugging();
 }
