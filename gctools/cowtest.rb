@@ -35,9 +35,15 @@ def start
 	
 	pid = fork do
 		pid = fork do
+			if GC.respond_to?(:initialize_debugging)
+				ENV['RD_PROMPT_BEFORE_GC'] = '1'
+				ENV['RD_PROMPT_BEFORE_SWEEP'] = '1'
+				ENV['RD_PRINT_SWEEPED_OBJECTS'] = '1'
+				GC.initialize_debugging
+			end
+			
 			puts "Child process #{$$} created. Press Enter to start garbage collection."
 			STDIN.readline
-			
 			print_statistics
 			puts "Garbage collection finished. Press Enter to exit."
 			STDIN.readline

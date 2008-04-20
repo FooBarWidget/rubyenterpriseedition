@@ -27,6 +27,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -197,12 +198,14 @@ static struct {
     /* Whether to ask the user to press Enter after the sweep phase of the garbage
      * collector starts. */
     int prompt_after_sweep;
+    
+    int print_sweeped_objects;
 } debug_options;
 
 #define OPTION_ENABLED(name) (getenv((name)) && *getenv((name)) && *getenv((name)) != '0')
 
 static VALUE
-rb_gc_init_debugging()
+rb_gc_init_debugging(VALUE self)
 {
     if (debug_options.terminal != NULL) {
 	fclose(debug_options.terminal);
@@ -216,11 +219,28 @@ rb_gc_init_debugging()
 	    fflush(stderr);
 	}
     }
-    debug_options.alloc_heap_with_file = OPTION_ENABLED("RD_ALLOC_HEAP_WITH_FILE");
-    debug_options.prompt_before_gc     = OPTION_ENABLED("RD_PROMPT_BEFORE_GC");
-    debug_options.prompt_before_sweep  = OPTION_ENABLED("RD_PROMPT_BEFORE_SWEEP");
-    debug_options.prompt_after_sweep   = OPTION_ENABLED("RD_PROMPT_AFTER_SWEEP");
+    debug_options.alloc_heap_with_file  = OPTION_ENABLED("RD_ALLOC_HEAP_WITH_FILE");
+    debug_options.prompt_before_gc      = OPTION_ENABLED("RD_PROMPT_BEFORE_GC");
+    debug_options.prompt_before_sweep   = OPTION_ENABLED("RD_PROMPT_BEFORE_SWEEP");
+    debug_options.prompt_after_sweep    = OPTION_ENABLED("RD_PROMPT_AFTER_SWEEP");
+    debug_options.print_sweeped_objects = OPTION_ENABLED("RD_PRINT_SWEEPED_OBJECTS");
     return Qnil;
+}
+
+static void
+debug_print(const char *message, ...)
+{
+    va_list ap;
+    
+    va_start(ap, message);
+    if (debug_options.terminal != NULL) {
+	vfprintf(debug_options.terminal, message, ap);
+	fflush(debug_options.terminal);
+    } else {
+	vfprintf(stderr, message, ap);
+	fflush(stderr);
+    }
+    va_end(ap);
 }
 
 #define debug_prompt(prompt) \
@@ -1241,9 +1261,13 @@ gc_sweep()
 	while (p < pend) {
 	    if (!rb_mark_table_heap_contains(heap, p)) {
 		if (p->as.basic.flags) {
+		    if (debug_options.print_sweeped_objects) {
+			debug_print("Sweeped object: %p\n", (void *) p);
+		    }
 		    obj_free((VALUE)p);
 		}
 		if (need_call_final && FL_TEST(p, FL_FINALIZE)) {
+		    /* This object has a finalizer, so don't free it right now, but do it later. */
 		    rb_mark_table_heap_add(heap, p); /* remain marked */
 		    p->as.free.next = final_list;
 		    final_list = p;
@@ -1781,7 +1805,7 @@ void ruby_init_stack(VALUE *addr
 void
 Init_heap()
 {
-    rb_gc_init_debugging();
+    rb_gc_init_debugging((VALUE) NULL);
     rb_use_fast_mark_table();
     rb_mark_table_init();
     if (!rb_gc_stack_start) {
@@ -2348,7 +2372,7 @@ os_statistics()
         "GC cycles so far     : %d\n"
         "Number of heaps      : %d\n"
         "Total size of objects: %.2f KB\n"
-        "Total size of heaps  : %.2f KB (%.2f KB = %.2f%% overhead)\n"
+        "Total size of heaps  : %.2f KB (%.2f KB = %.2f%% unused)\n"
         "Leading free slots   : %d (%.2f KB = %.2f%%)\n"
         "Trailing free slots  : %d (%.2f KB = %.2f%%)\n"
         "Number of contiguous groups of %d slots: %d (%.2f%%)\n"
@@ -2442,6 +2466,7 @@ Init_GC()
     rb_define_singleton_method(rb_mGC, "enable", rb_gc_enable, 0);
     rb_define_singleton_method(rb_mGC, "disable", rb_gc_disable, 0);
     rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
+    rb_define_singleton_method(rb_mGC, "initialize_debugging", rb_gc_init_debugging, 0);
     rb_define_singleton_method(rb_mGC, "copy_on_write_friendly?", rb_gc_copy_on_write_friendly, 0);
     rb_define_singleton_method(rb_mGC, "copy_on_write_friendly=", rb_gc_set_copy_on_write_friendly, 1);
 
