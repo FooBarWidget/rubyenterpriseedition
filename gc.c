@@ -280,9 +280,8 @@ alloc_ruby_heap_with_file(size_t size)
 	if (memory == NULL) {
 	    return NULL;
 	} else {
-	    FileHeapAllocatorMetaData *p = (FileHeapAllocatorMetaData *) memory;
-	    *p = meta;
-	    return p + 1;
+	    memcpy(memory, &meta, sizeof(meta));
+	    return memory + sizeof(meta);
 	}
     }
 }
@@ -300,9 +299,10 @@ alloc_ruby_heap(size_t size)
 static void
 free_ruby_heap_with_file(void *heap)
 {
-    FileHeapAllocatorMetaData *p = (FileHeapAllocatorMetaData *) heap;
-    close(p->fd);
-    munmap(p, p->size);
+    FileHeapAllocatorMetaData *meta = (FileHeapAllocatorMetaData *)
+        (heap - sizeof(FileHeapAllocatorMetaData));
+    close(meta->fd);
+    munmap(heap, meta->size);
 }
 
 static void
