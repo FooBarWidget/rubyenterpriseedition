@@ -2077,7 +2077,6 @@ Init_GC()
     rb_define_singleton_method(rb_mGC, "enable", rb_gc_enable, 0);
     rb_define_singleton_method(rb_mGC, "disable", rb_gc_disable, 0);
     rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
-    rb_define_singleton_method(rb_mGC, "freeze!", rb_gc_freeze, 0);
 
     rb_mObSpace = rb_define_module("ObjectSpace");
     rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
@@ -2091,6 +2090,8 @@ Init_GC()
     rb_define_module_function(rb_mObSpace, "undefine_finalizer", undefine_final, 1);
 
     rb_define_module_function(rb_mObSpace, "_id2ref", id2ref, 1);
+
+    rb_define_singleton_method(rb_mGC, "freeze!", os_freeze, 0);
 
     rb_gc_register_address(&rb_mObSpace);
     rb_global_variable(&finalizers);
