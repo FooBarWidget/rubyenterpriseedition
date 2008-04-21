@@ -309,6 +309,10 @@ static struct heaps_slot {
 static int heaps_length = 0;
 static int heaps_used   = 0;
 
+struct heaps_slot *frozen_heaps;
+static int frozen_heaps_length = 0;
+static int frozen_heaps_used = 0;
+
 #define HEAP_MIN_SLOTS 10000
 static int heap_slots = HEAP_MIN_SLOTS;
 
@@ -614,6 +618,13 @@ is_pointer_to_heap(ptr)
 	if (heap_org <= p && p < heap_org + heaps[i].limit)
 	    return Qtrue;
     }
+    
+    for (i = 0; i < frozen_heaps_used; i++) {
+	heap_org = frozen_heaps[i].slot;
+	if (heap_org <= p && p < heap_org + frozen_heaps[i].limit)
+	    return Qtrue;
+    }
+    
     return Qfalse;
 }
 
@@ -1596,6 +1607,9 @@ Init_heap()
 	Init_stack(0);
     }
     add_heap();
+    frozen_heaps = malloc(sizeof(struct heaps_slot) * 10);
+    frozen_heaps_used = 0;
+    frozen_heaps_length = 10;
 }
 
 static VALUE
@@ -2063,6 +2077,7 @@ Init_GC()
     rb_define_singleton_method(rb_mGC, "enable", rb_gc_enable, 0);
     rb_define_singleton_method(rb_mGC, "disable", rb_gc_disable, 0);
     rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
+    rb_define_singleton_method(rb_mGC, "freeze!", rb_gc_freeze, 0);
 
     rb_mObSpace = rb_define_module("ObjectSpace");
     rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
