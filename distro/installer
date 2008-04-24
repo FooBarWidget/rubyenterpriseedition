@@ -1,4 +1,7 @@
 #!/bin/sh
+# Simple bootstrap script for the installer. This script uses the bundled
+# Ruby interpreter binary whenever possible, and falls back to the system's
+# Ruby interpreter if no suitable bundled Ruby interpreter exists.
 dir=`dirname "$0"`
 cd "$dir"
 platform="`uname`-`uname -m`"

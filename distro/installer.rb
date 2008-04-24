@@ -9,12 +9,21 @@ class Installer
 		Dir.chdir(ROOT)
 		@version = File.read("version.txt")
 		show_welcome_screen
+		check_dependencies
 		ask_installation_prefix
-		if configure && compile && install && install_rubygems && install_useful_libraries
-			show_finalization_screen
-		else
-			exit 1
+		
+		steps = [
+		  :configure_tcmalloc, :compile_tcmalloc, :install_tcmalloc,
+		  :configure_ruby,     :compile_ruby,     :install_ruby,
+		  :install_rubygems,
+		  :install_useful_libraries
+		]
+		steps.each do |step|
+			if !self.send(step)
+				exit 1
+			end
 		end
+		show_finalization_screen
 	ensure
 		reset_terminal_colors
 	end
@@ -38,6 +47,10 @@ private
 		wait
 	end
 	
+	def check_dependencies
+		# TODO: check for zlib-dev and openssl-dev. Ruby needs them for some modules.
+	end
+	
 	def ask_installation_prefix
 		line
 		color_puts "<banner>Target directory</banner>"
@@ -45,80 +58,56 @@ private
 		puts "Where would you like to install Ruby Enterprise Edition to?"
 		puts "(All Ruby Enterprise Edition files will be put inside that directory.)"
 		puts
-		old_prefix = File.read("source/.prefix.txt") rescue nil
-		@prefix = query_directory(old_prefix || "/opt/ruby-enterprise-#{@version}")
-	end
-	
-	def configure
-		line
-		color_puts "<banner>Compiling and optimizing Ruby Enterprise Edition</banner>"
-		color_puts "In the mean time, feel free to grab a cup of coffee.\n\n"
-		Dir.chdir("source") do
-			# If nothing has been compiled yet, then update the timestamps of the files.
-			# This prevents 'configure' and 'make' from thinking that the 'configure'
-			# script must be regenerated.
-			if Dir["*.o"].empty?
-				system("touch *")
-			end
-			
-			old_prefix = File.read(".prefix.txt") rescue nil
-			if old_prefix != @prefix || !File.exist?("Makefile")
-				File.open(".prefix.txt", "w") do |f|
-					f.write(@prefix)
-				end
-				puts "./configure --prefix=#{@prefix}"
-				if !system("./configure --prefix=#{@prefix}")
-					return false
-				end
-			else
-				color_puts "<green>It looks like the source is already configured.</green>"
-				color_puts "<green>Skipping configure script...</green>"
-			end
-			return true
+		@old_prefix = File.read("source/.prefix.txt") rescue nil
+		@prefix = query_directory(@old_prefix || "/opt/ruby-enterprise-#{@version}")
+		@prefix_changed = @prefix != @old_prefix
+		File.open("source/.prefix.txt", "w") do |f|
+			f.write(@prefix)
 		end
 	end
 	
-	def compile
+	def configure_tcmalloc
+		return configure_autoconf_package('source/vendor/google-perftools-0.97',
+			'the memory allocator for Ruby Enterprise Edition',
+			'--disable-dependency-tracking')
+	end
+	
+	def compile_tcmalloc
+		Dir.chdir('source/vendor/google-perftools-0.97') do
+			return sh("make libtcmalloc_minimal.la")
+		end
+	end
+	
+	def install_tcmalloc
+		return install_autoconf_package('source/vendor/google-perftools-0.97',
+		  'the memory allocator for Ruby Enterprise Edition') do
+			sh("mkdir", "-p", "#{@prefix}/lib") &&
+			sh("cp .libs/libtcmalloc_minimal.so* '#{@prefix}/lib/'")
+		end
+	end
+	
+	def configure_ruby
+		return configure_autoconf_package('source', 'Ruby Enterprise Edition')
+	end
+	
+	def compile_ruby
 		Dir.chdir("source") do
 			# No idea why, but sometimes 'make' fails unless we do this.
-			system("mkdir -p .ext/common")
+			sh("mkdir -p .ext/common")
 			
-			return system("make")
+			return sh("make EXTLIBS='-Wl,-rpath,#{@prefix}/lib -L#{@prefix}/lib -ltcmalloc_minimal'")
 		end
 	end
 	
-	def install
-		Dir.chdir("source") do
-			if system("make install")
-				return true
-			else
-				puts
-				line
-				color_puts "<red>Cannot install Ruby Enterprise Edition</red>"
-				puts
-				color_puts "This installer was able to compile Ruby Enterprise Edition, but could not"
-				color_puts "install the files to <b>#{@prefix}</b>."
-				puts
-				if Process.uid == 0
-					color_puts "This installer probably doesn't have permission " <<
-						"to write to that folder, even though it's running as " <<
-						"root. Please fix the permissions, and re-run this installer."
-				else
-					color_puts "This installer probably doesn't have permission to " <<
-						"write to that folder, because it's running as " <<
-						"<b>#{`whoami`.strip}</b>. Please re-run this installer " <<
-						"as <b>root</b>."
-				end
-				return false
-			end
-		end
+	def install_ruby
+		return install_autoconf_package('source', 'Ruby Enterprise Edition')
 	end
 	
 	def install_rubygems
 		Dir.chdir("rubygems") do
 			line
 			color_puts "<banner>Installing RubyGems...</banner>"
-			return system("#{@prefix}/bin/ruby setup.rb --no-ri --no-rdoc")
+			return sh("#{@prefix}/bin/ruby", "setup.rb", "--no-ri", "--no-rdoc")
 		end
 	end
 	
@@ -126,13 +115,13 @@ private
 		line
 		color_puts "<banner>Installing useful libraries...</banner>"
 		gem = "#{@prefix}/bin/ruby #{@prefix}/bin/gem"
-		status = system("#{gem} install --no-rdoc --no-ri --backtrace rails mongrel fastthread")
+		status = sh("#{gem} install --no-rdoc --no-ri --backtrace rails mongrel fastthread")
 		
 		# These gems may fail to install if MySQL and SQLite headers aren't installed.
 		# But we continue anyway.
-		system("#{gem} install --no-rdoc --no-ri --backtrace mysql")
-		system("#{gem} install --no-rdoc --no-ri --backtrace sqlite3-ruby")
-		system("#{gem} install --no-rdoc --no-ri --backtrace postgres")
+		sh("#{gem} install --no-rdoc --no-ri --backtrace mysql")
+		sh("#{gem} install --no-rdoc --no-ri --backtrace sqlite3-ruby")
+		sh("#{gem} install --no-rdoc --no-ri --backtrace postgres")
 		
 		return status
 	end
@@ -208,6 +197,67 @@ private
 		end
 	rescue Interrupt, EOFError
 		exit 2
+	end
+	
+	def sh(*command)
+		puts command.join(' ')
+		return system(*command)
+	end
+	
+	def configure_autoconf_package(dir, name, configure_options = nil)
+		line
+		color_puts "<banner>Compiling and optimizing #{name}</banner>"
+		color_puts "In the mean time, feel free to grab a cup of coffee.\n\n"
+		Dir.chdir(dir) do
+			# If nothing has been compiled yet, then update the timestamps of the files.
+			# This prevents 'configure' and 'make' from thinking that the 'configure'
+			# script must be regenerated.
+			if Dir["*.o"].empty?
+				system("touch *")
+			end
+			
+			if @prefix_changed || !File.exist?("Makefile")
+				if !sh("./configure --prefix=#{@prefix} #{configure_options}")
+					return false
+				end
+			else
+				color_puts "<green>It looks like the source is already configured.</green>"
+				color_puts "<green>Skipping configure script...</green>"
+			end
+			return true
+		end
+	end
+	
+	def install_autoconf_package(dir, name)
+		Dir.chdir(dir) do
+			if block_given?
+				result = yield
+			else
+				result = sh("make install")
+			end
+			if result
+				return true
+			else
+				puts
+				line
+				color_puts "<red>Cannot install #{name}</red>"
+				puts
+				color_puts "This installer was able to compile #{name}, but could not"
+				color_puts "install the files to <b>#{@prefix}</b>."
+				puts
+				if Process.uid == 0
+					color_puts "This installer probably doesn't have permission " <<
+						"to write to that folder, even though it's running as " <<
+						"root. Please fix the permissions, and re-run this installer."
+				else
+					color_puts "This installer probably doesn't have permission to " <<
+						"write to that folder, because it's running as " <<
+						"<b>#{`whoami`.strip}</b>. Please re-run this installer " <<
+						"as <b>root</b>."
+				end
+				return false
+			end
+		end
 	end
 end
 

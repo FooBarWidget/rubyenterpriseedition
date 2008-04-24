@@ -14,6 +14,9 @@ task :package do
 		sh 'rm', '-rf', 'autom4te.cache'
 		system 'bison', '-y', '-o', 'parse.c', 'parse.y'
 	end
+	Dir.chdir("#{distdir}/source/vendor/google-perftools-0.97") do
+		sh "autoconf"
+	end
 	
 	sh "cp distro/installer distro/installer.rb #{distdir}/"
 	sh "cd #{distdir} && ln -s source/distro/runtime ."
