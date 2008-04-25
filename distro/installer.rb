@@ -40,8 +40,8 @@ private
 		color_puts "  <b>1.</b> Ruby Enterprise Edition will be compiled and optimized for speed for this"
 		color_puts "     system."
 		color_puts "  <b>2.</b> Ruby on Rails will be installed for Ruby Enterprise Edition."
-		color_puts "  <b>3.</b> You will learn how to tell Passenger to use Ruby Enterprise Edition"
-		color_puts "     instead of regular Ruby."
+		color_puts "  <b>3.</b> You will learn how to tell Phusion Passenger to use Ruby Enterprise"
+		color_puts "     Edition instead of regular Ruby."
 		puts
 		color_puts "<b>Press Enter to continue, or Ctrl-C to abort.</b>"
 		wait
@@ -143,6 +143,8 @@ private
 		color_puts "If you have any questions, feel free to visit our website:"
 		puts
 		color_puts "  <b>#{EMM_RUBY_WEBSITE}</b>"
+		puts
+		color_puts "Ruby Enterprise Edition is a product of Phusion (<yellow>www.phusion.nl</yellow>)"
 	end
 
 private
