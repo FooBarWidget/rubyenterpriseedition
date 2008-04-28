@@ -115,15 +115,34 @@ private
 		line
 		color_puts "<banner>Installing useful libraries...</banner>"
 		gem = "#{@prefix}/bin/ruby #{@prefix}/bin/gem"
-		status = sh("#{gem} install --no-rdoc --no-ri --backtrace rails mongrel fastthread")
 		
-		# These gems may fail to install if MySQL and SQLite headers aren't installed.
-		# But we continue anyway.
-		sh("#{gem} install --no-rdoc --no-ri --backtrace mysql")
-		sh("#{gem} install --no-rdoc --no-ri --backtrace sqlite3-ruby")
-		sh("#{gem} install --no-rdoc --no-ri --backtrace postgres")
+		gem_names = ["rails", "mongrel", "fastthread", "mysql", "sqlite3-ruby", "postgres"]
+		failed_gems = []
+		gem_names.each do |gem_name|
+			color_puts "\n<b>Installing #{gem_name}...</b>"
+			if !sh("#{gem} install --no-rdoc --no-ri --backtrace #{gem_name}")
+				failed_gems << gem_name
+			end
+		end
 		
-		return status
+		if !failed_gems.empty?
+			line
+			color_puts "<banner>Warning: some libraries could not be installed</banner>"
+			color_puts "The following gems could not be installed, probably because of an Internet"
+			color_puts "connection error:"
+			puts
+			failed_gems.each do |gem_name|
+				color_puts " <b>* #{gem_name}</b>"
+			end
+			puts
+			color_puts "These gems are not required, i.e. Ruby Enterprise Edition will work fine without them. But most people use Ruby Enterprise Edition in combination with Passenger and Ruby on Rails, which do require one or more of the aforementioned gems, so you may want to install them later."
+			puts
+			color_puts "To install the aforementioned gems, please use the following command:"
+			color_puts "<yellow>#{gem} install #{failed_gems.join(' ')}</yellow>"
+			puts
+			color_puts "<b>Press ENTER to show the next screen.</b>"
+			wait
+		end
 	end
 	
 	def show_finalization_screen
@@ -144,7 +163,7 @@ private
 		puts
 		color_puts "  <b>#{EMM_RUBY_WEBSITE}</b>"
 		puts
-		color_puts "Ruby Enterprise Edition is a product of Phusion (<yellow>www.phusion.nl</yellow>)"
+		color_puts "Ejoy Ruby Enterprise Edition, a product of <yellow>Phusion (www.phusion.nl)</yellow> :-)"
 	end
 
 private
@@ -244,8 +263,8 @@ private
 				line
 				color_puts "<red>Cannot install #{name}</red>"
 				puts
-				color_puts "This installer was able to compile #{name}, but could not"
-				color_puts "install the files to <b>#{@prefix}</b>."
+				color_puts "This installer was able to compile #{name}, but could not " <<
+					"install the files to <b>#{@prefix}</b>."
 				puts
 				if Process.uid == 0
 					color_puts "This installer probably doesn't have permission " <<
