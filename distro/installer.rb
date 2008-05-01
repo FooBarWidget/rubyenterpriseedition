@@ -1,9 +1,17 @@
 #!/usr/bin/env ruby
+require "#{File.dirname(__FILE__)}/dependencies"
 
 class Installer
+	include RubyEnterpriseEdition
+
 	ROOT = File.expand_path(File.dirname(__FILE__))
 	PASSENGER_WEBSITE = "http://www.modrails.com"
 	EMM_RUBY_WEBSITE = "http://www.rubyenterpriseedition.com"
+	REQUIRED_DEPENDENCIES = [
+		Dependencies::GCC,
+		Dependencies::Zlib_Dev,
+		Dependencies::OpenSSL_Dev
+	]
 	
 	def start
 		Dir.chdir(ROOT)
@@ -48,7 +56,42 @@ private
 	end
 	
 	def check_dependencies
-		# TODO: check for zlib-dev and openssl-dev. Ruby needs them for some modules.
+		missing_dependencies = []
+		color_puts "<banner>Checking for required software...</banner>"
+		puts
+		REQUIRED_DEPENDENCIES.each do |dep|
+			color_print " * #{dep.name}... "
+			result = dep.check
+			if result.found?
+				if result.found_at
+					color_puts "<green>found at #{result.found_at}</green>"
+				else
+					color_puts "<green>found</green>"
+				end
+			else
+				color_puts "<red>not found</red>"
+				missing_dependencies << dep
+			end
+		end
+		
+		if missing_dependencies.empty?
+			return true
+		else
+			puts
+			color_puts "<red>Some required software is not installed.</red>"
+			color_puts "But don't worry, this installer will tell you how to install them.\n"
+			color_puts "<b>Press Enter to continue, or Ctrl-C to abort.</b>"
+			wait
+			
+			line
+			color_puts "<banner>Installation instructions for required software</banner>"
+			puts
+			missing_dependencies.each do |dep|
+				print_dependency_installation_instructions(dep)
+				puts
+			end
+			return false
+		end
 	end
 	
 	def ask_installation_prefix
