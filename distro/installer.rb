@@ -23,14 +23,14 @@ class Installer
 		steps = [
 		  :configure_tcmalloc, :compile_tcmalloc, :install_tcmalloc,
 		  :configure_ruby,     :compile_ruby,     :install_ruby,
-		  :install_rubygems,
-		  :install_useful_libraries
+		  :install_rubygems
 		]
 		steps.each do |step|
 			if !self.send(step)
 				exit 1
 			end
 		end
+		install_useful_libraries
 		show_finalization_screen
 	ensure
 		reset_terminal_colors
