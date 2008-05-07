@@ -21,16 +21,24 @@ class Installer
 		ask_installation_prefix
 		
 		steps = []
-		if platform_is_64_bit?
+		if tcmalloc_supported?
+			if libunwind_needed?
+				steps += [
+				  :configure_libunwind,
+				  :compile_libunwind,
+				  :install_libunwind
+				]
+			end
 			steps += [
-			  :configure_libunwind,
-			  :compile_libunwind,
-			  :install_libunwind
+			  :configure_tcmalloc,
+			  :compile_tcmalloc,
+			  :install_tcmalloc
 			]
 		end
 		steps += [
-		  :configure_tcmalloc, :compile_tcmalloc, :install_tcmalloc,
-		  :configure_ruby,     :compile_ruby,     :install_ruby,
+		  :configure_ruby,
+		  :compile_ruby,
+		  :install_ruby,
 		  :install_rubygems
 		]
 		steps.each do |step|
@@ -115,6 +123,9 @@ private
 		File.open("source/.prefix.txt", "w") do |f|
 			f.write(@prefix)
 		end
+		ENV['C_INCLUDE_PATH'] = "#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['C_INCLUDE_PATH']}"
+		ENV['CPLUS_INCLUDE_PATH'] = "#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['CPLUS_INCLUDE_PATH']}"
+		ENV['LD_LIBRARY_PATH'] = "#{@prefix}/lib:#{ENV['LD_LIBRARY_PATH']}"
 	end
 	
 	def configure_libunwind
@@ -162,7 +173,11 @@ private
 			# No idea why, but sometimes 'make' fails unless we do this.
 			sh("mkdir -p .ext/common")
 			
-			return sh("make EXTLIBS='-Wl,-rpath,#{@prefix}/lib -L#{@prefix}/lib -ltcmalloc_minimal'")
+			if tcmalloc_supported?
+				return sh("make EXTLIBS='-Wl,-rpath,#{@prefix}/lib -L#{@prefix}/lib -ltcmalloc_minimal'")
+			else
+				return sh("make")
+			end
 		end
 	end
 	
@@ -287,8 +302,17 @@ private
 		exit 2
 	end
 	
+	def tcmalloc_supported?
+		return !platform_is_64_bit?
+	end
+	
+	def libunwind_needed?
+		return false
+	end
+	
 	def platform_is_64_bit?
-		return true
+		machine = `uname -m`.strip
+		return machine == "x86_64"
 	end
 	
 	def sh(*command)
