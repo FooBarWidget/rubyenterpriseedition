@@ -1,0 +1,161 @@
+-*- mode: Outline -*-
+
+This is version 0.97 of the unwind library.  At the moment, only the
+IA-64 Linux (IPF Linux) platform is fully supported.  Some basic
+support for x86 and HP-UX/IPF exists also.  However, the x86 support
+is based mostly on the frame-chain and does not reliably use unwind
+information yet, so its utility is limited.  Similarly, the HP-UX/IPF
+support is incomplete, though it is sufficient to do a basic
+backtrace.  unw_resume() is not supported, however.
+
+* Important GCC v3.4.[012] Caveat
+
+GCC v3.4.[012] break C++ ABI compatibility and because of that,
+libunwind cannot easily be used as the unwinder.  The GCC developers
+are aware of the problem [1] and the the problem has been fixed for
+GCC v3.4.3.
+
+[1] http://gcc.gnu.org/ml/gcc/2004-04/msg00989.html
+
+* General Build Instructions
+
+In general, this library can be built and installed with the following
+commands:
+
+	$ ./configure
+	$ make
+	$ make install prefix=PREFIX
+
+where PREFIX is the installation prefix.  By default, a prefix of
+/usr/local is used, such that libunwind.a is installed in
+/usr/local/lib and unwind.h is installed in /usr/local/include.  For
+testing, you may want to use a prefix of /usr/local instead.
+
+
+* Building with Intel compiler
+
+** Version 8 and later
+
+Starting with version 8, the preferred name for the IA-64 Intel
+compiler is "icc" (same name as on x86).  Thus, the configure-line
+should look like this:
+
+    $ ./configure CC=icc CFLAGS="-g -O3 -ip" CXX=icc CCAS=gcc CCASFLAGS=-g \
+		LDFLAGS="-L$PWD/src/.libs"
+
+** Version 7
+
+To build libunwind with the Intel Electron compiler (ECC), it is
+recommended to run configure like this:
+
+	$ ./configure CC=ecc CXX=ecc CCAS=gcc CCASFLAGS=-g \
+		LDFLAGS="-L$PWD/src/.libs"
+
+The reason for this is that ECC uses the Intel assembler, which
+doesn't grok some of the IA-64 assembly code in the "tests" directory.
+
+For an ECC-built version of libunwind to work properly, you also need
+to ensure that /usr/include/asm/fpu.h contains a "long double" member
+called "__dummy" in the declaration of "struct ia64_fpreg".  Without
+that member, variables of type unw_context_t won't be aligned
+properly.
+
+* Building on HP-UX
+
+For the time being, libunwind must be built with GCC on HP-UX.
+
+libunwind should be configured and installed on HP-UX like this:
+
+    $ ./configure CFLAGS="-g -O2 -mlp64" CXXFLAGS="-g -O2 -mlp64"
+
+Caveat: Unwinding of 32-bit (ILP32) binaries is not supported
+	at the moment.
+
+** Workaround for older versions of GCC
+
+GCC v3.0 and GCC v3.2 ship with a bad version of sys/types.h.  The
+workaround is to issue the following commands before running
+"configure":
+
+    $ mkdir $top_dir/include/sys
+    $ cp /usr/include/sys/types.h $top_dir/include/sys
+
+GCC v3.3.2 or later have been fixed and do not require this
+workaround.
+
+* Regression Testing
+
+After building the library, you can run a set of regression tests with:
+
+	$ make check
+
+** Expected results on IA-64 Linux
+
+Unless you have a very recent C library and compiler installed, it is
+currently expected to have the following tests fail on IA-64 Linux:
+
+	Gtest-init		(should pass starting with glibc-2.3.x/gcc-3.4)
+	Ltest-init		(should pass starting with glibc-2.3.x/gcc-3.4)
+	test-ptrace		(should pass starting with glibc-2.3.x/gcc-3.4)
+	run-ia64-test-dyn1	(should pass starting with glibc-2.3.x)
+
+This does not mean that libunwind cannot be used with older compilers
+or C libraries, it just means that for certain corner cases, unwinding
+will fail.  Since they're corner cases, it is not likely for
+applications to trigger them.
+
+Note: If you get lots of errors in Gia64-test-nat and Lia64-test-nat, it's
+      almost certainly a sign of an old assembler.  The GNU assembler used
+      to encode previous-stack-pointer-relative offsets incorrectly.
+      This bug was fixed on 21-Sep-2004 so any later assembler will be
+      fine.
+
+** Expected results on x86 Linux
+
+The following tests are expected to fail on x86 Linux:
+
+	test-proc-info		(x86 unwinder doesn't use unwind-info yet)
+	Gtest-exc		(unw_resume() not implmented yet)
+	Ltest-exc		(unw_resume() not implmented yet)
+	test-setjmp		(unw_resume() not implmented yet)
+
+** Expected results on HP-UX
+
+"make check" is currently unsupported for HP-UX.  You can try to run
+it, but most tests will fail (and some may fail to terminate).  The
+only test programs that are known to work at this time are:
+
+     tests/bt
+     tests/Gperf-simple
+     tests/test-proc-info
+     tests/test-static-link
+     tests/Gtest-init
+     tests/Ltest-init
+     tests/Gtest-resume-sig
+     tests/Ltest-resume-sig
+
+* Performance Testing
+
+This distribution includes a few simple performance tests which give
+some idea of the basic cost of various libunwind operations.  After
+building the library, you can run these tests with the following
+commands:
+
+ $ cd tests
+ $ make perf
+
+* Contacting the Developers
+
+Please direct all questions regarding this library to:
+
+	libunwind-devel@nongnu.org
+
+You can do this by sending a mail to libunwind-request@nongnu.org with
+a body of:
+
+	subscribe libunwind-devel
+
+or you can subscribe and manage your subscription via the
+web-interface at:
+
+	https://savannah.nongnu.org/mail/?group=libunwind
