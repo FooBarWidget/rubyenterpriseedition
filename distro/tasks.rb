@@ -1,4 +1,4 @@
-REE_VERSION = "20080501"
+REE_VERSION = "20080507"
 
 desc "Create a distribution package"
 task :package do

@@ -48,3 +48,5 @@ ext/dl/dlconfig.h
 ext/dl/dlconfig.rb
 ext/openssl/extconf.h
 ext/win32ole/.document
+distro/version.txt
+/ruby-enterprise-*
