@@ -20,7 +20,15 @@ class Installer
 		check_dependencies
 		ask_installation_prefix
 		
-		steps = [
+		steps = []
+		if platform_is_64_bit?
+			steps += [
+			  :configure_libunwind,
+			  :compile_libunwind,
+			  :install_libunwind
+			]
+		end
+		steps += [
 		  :configure_tcmalloc, :compile_tcmalloc, :install_tcmalloc,
 		  :configure_ruby,     :compile_ruby,     :install_ruby,
 		  :install_rubygems
@@ -107,6 +115,22 @@ private
 		File.open("source/.prefix.txt", "w") do |f|
 			f.write(@prefix)
 		end
+	end
+	
+	def configure_libunwind
+		return configure_autoconf_package('source/vendor/libunwind-0.98.6',
+			'libunwind')
+	end
+	
+	def compile_libunwind
+		Dir.chdir('source/vendor/libunwind-0.98.6') do
+			return sh("make")
+		end
+	end
+	
+	def install_libunwind
+		return install_autoconf_package('source/vendor/libunwind-0.98.6',
+		  'libunwind')
 	end
 	
 	def configure_tcmalloc
@@ -261,6 +285,10 @@ private
 		end
 	rescue Interrupt, EOFError
 		exit 2
+	end
+	
+	def platform_is_64_bit?
+		return true
 	end
 	
 	def sh(*command)

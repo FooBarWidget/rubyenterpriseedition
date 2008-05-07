@@ -12,7 +12,7 @@ config.h
 config.log
 config.status
 config.status.lineno
-configure
+/configure
 conftest.c
 conftest.er1
 mkmf.log
