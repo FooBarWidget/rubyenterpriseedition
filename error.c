@@ -29,7 +29,7 @@
 #define EXIT_SUCCESS 0
 #endif
 
-extern const char ruby_version[], ruby_release_date[], ruby_platform[];
+extern const char *ruby_description;
 
 int ruby_nerrs;
 
@@ -208,8 +208,7 @@ rb_bug(fmt, va_alist)
 	va_init_list(args, fmt);
 	vfprintf(out, fmt, args);
 	va_end(args);
-	fprintf(out, "\nruby %s (%s) [%s]\n\n",
-		ruby_version, ruby_release_date, ruby_platform);
+	fprintf(out, "\n%s\n\n", ruby_description);
     }
     abort();
 }
@@ -258,7 +257,7 @@ rb_check_type(x, t)
     if (TYPE(x) != t) {
 	while (type->type >= 0) {
 	    if (type->type == t) {
-		char *etype;
+		const char *etype;
 
 		if (NIL_P(x)) {
 		    etype = "nil";
@@ -499,7 +498,7 @@ rb_check_backtrace(bt)
     VALUE bt;
 {
     long i;
-    static char *err = "backtrace must be Array of String";
+    static const char err[] = "backtrace must be Array of String";
 
     if (!NIL_P(bt)) {
 	int t = TYPE(bt);
@@ -728,7 +727,7 @@ name_err_mesg_to_str(obj)
     mesg = ptr[0];
     if (NIL_P(mesg)) return Qnil;
     else {
-	char *desc = 0;
+	const char *desc = 0;
 	VALUE d = 0, args[3];
 
 	obj = ptr[1];
@@ -882,7 +881,7 @@ syserr_initialize(argc, argv, self)
 #if !defined(_WIN32) && !defined(__VMS)
     char *strerror();
 #endif
-    char *err;
+    const char *err;
     VALUE mesg, error;
     VALUE klass = rb_obj_class(self);
 

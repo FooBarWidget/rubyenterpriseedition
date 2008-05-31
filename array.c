@@ -2080,6 +2080,7 @@ rb_ary_slice_bang(argc, argv, ary)
     VALUE arg1, arg2;
     long pos, len, orig_len;
 
+    rb_ary_modify_check(ary);
     if (rb_scan_args(argc, argv, "11", &arg1, &arg2) == 2) {
 	pos = NUM2LONG(arg1);
 	len = NUM2LONG(arg2);
@@ -2184,6 +2185,7 @@ static VALUE
 rb_ary_delete_if(ary)
     VALUE ary;
 {
+    RETURN_ENUMERATOR(ary, 0, 0);
     rb_ary_reject_bang(ary);
     return ary;
 }
@@ -3063,27 +3065,34 @@ rb_ary_nitems(ary)
 
 /*
  *  call-seq:
+ *     array.count      -> int
  *     array.count(obj) -> int
  *     array.count { |item| block }  -> int
  *  
- *  Returns the number of elements which equals to <i>obj</i>.
- *  If a block is given, counts tthe number of elements yielding a true value.
+ *  Returns the number of elements.  If an argument is given, counts
+ *  the number of elements which equals to <i>obj</i>.  If a block is
+ *  given, counts the number of elements yielding a true value.
  *
  *     ary = [1, 2, 4, 2]
+ *     ary.count             # => 4
  *     ary.count(2)          # => 2
  *     ary.count{|x|x%2==0}  # => 3
  *
  */
 
 static VALUE
-rb_ary_count(int argc, VALUE *argv, VALUE ary)
+rb_ary_count(argc, argv, ary)
+    int argc;
+    VALUE *argv;
+    VALUE ary;
 {
     long n = 0;
 
     if (argc == 0) {
 	VALUE *p, *pend;
 
-	RETURN_ENUMERATOR(ary, 0, 0);
+	if (!rb_block_given_p())
+	    return LONG2NUM(RARRAY_LEN(ary));
 
 	for (p = RARRAY_PTR(ary), pend = p + RARRAY_LEN(ary); p < pend; p++) {
 	    if (RTEST(rb_yield(*p))) n++;
