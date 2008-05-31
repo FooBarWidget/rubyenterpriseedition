@@ -65,7 +65,7 @@ static VALUE do_loop = Qfalse, do_print = Qfalse;
 static VALUE do_check = Qfalse, do_line = Qfalse;
 static VALUE do_split = Qfalse;
 
-static char *script;
+static const char *script;
 
 static int origargc;
 static char **origargv;
@@ -321,6 +321,13 @@ ruby_init_loadpath()
 #endif
     incpush(RUBY_RELATIVE(RUBY_SITE_ARCHLIB));
     incpush(RUBY_RELATIVE(RUBY_SITE_LIB));
+
+    incpush(RUBY_RELATIVE(RUBY_VENDOR_LIB2));
+#ifdef RUBY_VENDOR_THIN_ARCHLIB
+    incpush(RUBY_RELATIVE(RUBY_VENDOR_THIN_ARCHLIB));
+#endif
+    incpush(RUBY_RELATIVE(RUBY_VENDOR_ARCHLIB));
+    incpush(RUBY_RELATIVE(RUBY_VENDOR_LIB));
 
     incpush(RUBY_RELATIVE(RUBY_LIB));
 #ifdef RUBY_THIN_ARCHLIB

@@ -545,7 +545,8 @@ rb_str_associated(str)
     return Qfalse;
 }
 
-static char *null_str = "";
+static const char null_str[] = "";
+#define null_str ((char *)null_str)
 
 VALUE
 rb_string_value(ptr)
@@ -1492,12 +1493,13 @@ rb_str_upto(beg, end, excl)
 
 /*
  *  call-seq:
- *     str.upto(other_str) {|s| block }   => str
+ *     str.upto(other_str, exclusive=false) {|s| block }   => str
  *  
  *  Iterates through successive values, starting at <i>str</i> and
  *  ending at <i>other_str</i> inclusive, passing each value in turn to
  *  the block. The <code>String#succ</code> method is used to generate
- *  each value.
+ *  each value.  If optional second argument exclusive is omitted or is <code>false</code>,
+ *  the last value will be included; otherwise it will be excluded.
  *     
  *     "a8".upto("b6") {|s| print s, ' ' }
  *     for s in "a8".."b6"
@@ -1511,10 +1513,16 @@ rb_str_upto(beg, end, excl)
  */
 
 static VALUE
-rb_str_upto_m(beg, end)
-    VALUE beg, end;
+rb_str_upto_m(argc, argv, beg)
+    int argc;
+    VALUE *argv;
+    VALUE beg;
 {
-    return rb_str_upto(beg, end, Qfalse);
+    VALUE end, exclusive;
+
+    rb_scan_args(argc, argv, "11", &end, &exclusive);
+
+    return rb_str_upto(beg, end, RTEST(exclusive));
 }
 
 static VALUE
@@ -4473,7 +4481,7 @@ rb_str_crypt(str, salt)
 {
     extern char *crypt();
     VALUE result;
-    char *s;
+    const char *s;
 
     StringValue(salt);
     if (RSTRING(salt)->len < 2)
@@ -4600,7 +4608,8 @@ rb_str_justify(argc, argv, str, jflag)
     VALUE w;
     long width, flen = 0;
     VALUE res;
-    char *p, *pend, *f = " ";
+    char *p, *pend;
+    const char *f = " ";
     long n;
     VALUE pad;
 
@@ -4626,7 +4635,7 @@ rb_str_justify(argc, argv, str, jflag)
 	    }
 	}
 	else {
-	    char *q = f;
+	    const char *q = f;
 	    while (p + flen <= pend) {
 		memcpy(p,f,flen);
 		p += flen;
@@ -4830,7 +4839,6 @@ rb_str_start_with(argc, argv, str)
     VALUE str;
 {
     int i;
-    long pos;
     VALUE pat;
 
     for (i=0; i<argc; i++) {
@@ -4929,7 +4937,7 @@ Init_String()
     rb_define_method(rb_cString, "succ!", rb_str_succ_bang, 0);
     rb_define_method(rb_cString, "next", rb_str_succ, 0);
     rb_define_method(rb_cString, "next!", rb_str_succ_bang, 0);
-    rb_define_method(rb_cString, "upto", rb_str_upto_m, 1);
+    rb_define_method(rb_cString, "upto", rb_str_upto_m, -1);
     rb_define_method(rb_cString, "index", rb_str_index_m, -1);
     rb_define_method(rb_cString, "rindex", rb_str_rindex_m, -1);
     rb_define_method(rb_cString, "replace", rb_str_replace, 1);
