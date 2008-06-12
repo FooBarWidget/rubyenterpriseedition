@@ -302,7 +302,7 @@ free_ruby_heap_with_file(void *heap)
     FileHeapAllocatorMetaData *meta = (FileHeapAllocatorMetaData *)
         (heap - sizeof(FileHeapAllocatorMetaData));
     close(meta->fd);
-    munmap(heap, meta->size);
+    munmap(heap, meta->size + sizeof(FileHeapAllocatorMetaData));
 }
 
 static void
