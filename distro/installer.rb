@@ -192,7 +192,7 @@ private
 			sh("mkdir -p .ext/common")
 			
 			if tcmalloc_supported?
-				return sh("make EXTLIBS='-Wl,-rpath,#{@prefix}/lib -L#{@destdir}#{@destdir}/lib -ltcmalloc_minimal'")
+				return sh("make EXTLIBS='-Wl,-rpath,#{@prefix}/lib -L#{@destdir}#{@prefix}/lib -ltcmalloc_minimal'")
 			else
 				return sh("make")
 			end
@@ -210,15 +210,26 @@ private
 		extlibdir = "#{libdir}/#{archname}"
 		site_libdir = "#{basedir}/site_ruby/1.8"
 		site_extlibdir = "#{site_libdir}/#{archname}"
-		
 		ENV['RUBYLIB'] = "#{libdir}:#{extlibdir}:#{site_libdir}:#{site_extlibdir}"
-		puts ENV['RUBYLIB']
 		
 		Dir.chdir("rubygems") do
 			line
 			color_puts "<banner>Installing RubyGems...</banner>"
-			return sh("#{@destdir}#{@prefix}/bin/ruby", "setup.rb", "--no-ri", "--no-rdoc")
+			if !sh("#{@destdir}#{@prefix}/bin/ruby", "setup.rb", "--no-ri", "--no-rdoc")
+				puts "*** Cannot install RubyGems"
+				return false
+			end
 		end
+		
+		# Add the system's RubyGems path to our gem search path.
+		if PlatformInfo.find_command("ruby")
+			system_gem_path = `ruby -rubygems -e 'puts Gem.path.first'`.strip
+			File.open("#{site_libdir}/rubygems.rb", "a") do |f|
+				f.write("\n")
+				f.write("Gem.path << '#{system_gem_path}'\n")
+			end
+		end
+		return true
 	end
 	
 	def install_useful_libraries
@@ -257,6 +268,11 @@ private
 			puts
 			color_puts "<b>Press ENTER to show the next screen.</b>"
 			wait
+		end
+		
+		# Fix the shebang lines of scripts in 'bin' folder.
+		Dir.chdir("#{@destdir}#{@prefix}/bin") do
+			sh "sed -i 's|^#!.*$|#!#{@prefix}/bin/ruby|' *"
 		end
 	end
 	

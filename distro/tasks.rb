@@ -32,9 +32,10 @@ desc "Auto-install into a fake root directory"
 task :fakeroot do
 	distdir = "/tmp/r8ee-test"
 	create_distdir(distdir)
+	sh "rm -rf fakeroot"
 	sh "mkdir fakeroot"
 	fakeroot = File.expand_path("fakeroot")
-	sh "#{distdir}/installer --auto='/opt/ruby-enterprise-#{VENDOR_RUBY_VERSION}-#{REE_VERSION}' --fakeroot=#{fakeroot}"
+	sh "#{distdir}/installer --auto='/opt/ruby-enterprise-#{VENDOR_RUBY_VERSION}-#{REE_VERSION}' --destdir='#{fakeroot}'"
 	puts "*** Ruby Enterprise Edition has been installed to #{fakeroot}"
 end
 
