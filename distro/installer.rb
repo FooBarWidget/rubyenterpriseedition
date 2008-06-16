@@ -354,7 +354,7 @@ private
 	end
 	
 	def tcmalloc_supported?
-		return !platform_is_64_bit?
+		return !platform_is_64_bit? && RUBY_PLATFORM !~ /darwin/
 	end
 	
 	def libunwind_needed?
