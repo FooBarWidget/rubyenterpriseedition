@@ -25,7 +25,7 @@ desc "Test the installer script"
 task :test_installer do
 	distdir = "/tmp/r8ee-test"
 	create_distdir(distdir)
-	sh "#{distdir}/installer"
+	sh "#{distdir}/installer #{ENV['ARGS']}"
 end
 
 def create_distdir(distdir = DISTDIR)
@@ -40,7 +40,8 @@ def create_distdir(distdir = DISTDIR)
 		system 'bison', '-y', '-o', 'parse.c', 'parse.y'
 	end
 	
-	sh "cp distro/installer distro/installer.rb distro/platform_info.rb distro/dependencies.rb #{distdir}/"
+	sh "cp distro/installer distro/installer.rb distro/platform_info.rb " <<
+		"distro/dependencies.rb distro/optparse.rb #{distdir}/"
 	sh "cd #{distdir} && ln -s source/distro/runtime ."
 	File.open("#{distdir}/version.txt", "w") do |f|
 		f.write("#{VENDOR_RUBY_VERSION}-#{REE_VERSION}")

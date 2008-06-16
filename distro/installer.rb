@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+require "#{File.dirname(__FILE__)}/optparse"
 require "#{File.dirname(__FILE__)}/dependencies"
 
 class Installer
@@ -13,9 +14,10 @@ class Installer
 		Dependencies::OpenSSL_Dev
 	]
 	
-	def start
+	def start(auto_install_prefix = nil)
 		Dir.chdir(ROOT)
 		@version = File.read("version.txt")
+		@auto_install_prefix = auto_install_prefix
 		show_welcome_screen
 		check_dependencies
 		ask_installation_prefix
@@ -114,11 +116,16 @@ private
 		line
 		color_puts "<banner>Target directory</banner>"
 		puts
-		puts "Where would you like to install Ruby Enterprise Edition to?"
-		puts "(All Ruby Enterprise Edition files will be put inside that directory.)"
-		puts
 		@old_prefix = File.read("source/.prefix.txt") rescue nil
-		@prefix = query_directory(@old_prefix || "/opt/ruby-enterprise-#{@version}")
+		if @auto_install_prefix
+			@prefix = @auto_install_prefix
+			puts "Auto-installing to: #{@prefix}"
+		else
+			puts "Where would you like to install Ruby Enterprise Edition to?"
+			puts "(All Ruby Enterprise Edition files will be put inside that directory.)"
+			puts
+			@prefix = query_directory(@old_prefix || "/opt/ruby-enterprise-#{@version}")
+		end
 		@prefix_changed = @prefix != @old_prefix
 		File.open("source/.prefix.txt", "w") do |f|
 			f.write(@prefix)
@@ -160,7 +167,12 @@ private
 		return install_autoconf_package('source/vendor/google-perftools-0.97',
 		  'the memory allocator for Ruby Enterprise Edition') do
 			sh("mkdir", "-p", "#{@prefix}/lib") &&
-			sh("cp .libs/libtcmalloc_minimal.so* '#{@prefix}/lib/'")
+			if RUBY_PLATFORM =~ /darwin/
+				lib_extension = "dylib"
+			else
+				lib_extension = "so"
+			end
+			sh("cp .libs/libtcmalloc_minimal.#{lib_extension}* '#{@prefix}/lib/'")
 		end
 	end
 	
@@ -198,13 +210,18 @@ private
 		color_puts "<banner>Installing useful libraries...</banner>"
 		gem = "#{@prefix}/bin/ruby #{@prefix}/bin/gem"
 		
-		gem_names = ["rails", "mongrel", "fastthread", "mysql", "sqlite3-ruby", "postgres"]
+		gem_names = ["rails", "fastthread", "rack", "mysql", "sqlite3-ruby", "postgres"]
 		failed_gems = []
-		gem_names.each do |gem_name|
-			color_puts "\n<b>Installing #{gem_name}...</b>"
-			if !sh("#{gem} install --no-rdoc --no-ri --backtrace #{gem_name}")
-				failed_gems << gem_name
+		
+		if sh("#{gem} sources --update")
+			gem_names.each do |gem_name|
+				color_puts "\n<b>Installing #{gem_name}...</b>"
+				if !sh("#{gem} install --no-rdoc --no-ri --no-update-sources --backtrace #{gem_name}")
+					failed_gems << gem_name
+				end
 			end
+		else
+			failed_gems = gem_names
 		end
 		
 		if !failed_gems.empty?
@@ -278,7 +295,9 @@ private
 	end
 	
 	def wait
-		STDIN.readline
+		if !@auto_install_prefix
+			STDIN.readline
+		end
 	rescue Interrupt
 		exit 2
 	end
@@ -377,4 +396,28 @@ private
 	end
 end
 
-Installer.new.start
+options = {}
+parser = OptionParser.new do |opts|
+	opts.banner = "Usage: installer [options]"
+	opts.separator("")
+	
+	opts.on("-a", "--auto PREFIX", String,
+	"Automatically install to directory PREFIX\n#{' ' * 37}without any user interaction") do |dir|
+		options[:prefix] = dir
+	end
+	
+	opts.on("-h", "--help", "Show this message") do
+		puts opts
+		exit
+	end
+end
+begin
+	parser.parse!
+rescue OptionParser::ParseError => e
+	puts e
+	puts
+	puts "Please see '--help' for valid options."
+	exit 1
+end
+
+Installer.new.start(options[:prefix])
