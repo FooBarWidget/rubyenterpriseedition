@@ -14,10 +14,11 @@ class Installer
 		Dependencies::OpenSSL_Dev
 	]
 	
-	def start(auto_install_prefix = nil)
+	def start(auto_install_prefix = nil, destdir = nil)
 		Dir.chdir(ROOT)
 		@version = File.read("version.txt")
 		@auto_install_prefix = auto_install_prefix
+		@destdir = destdir
 		show_welcome_screen
 		check_dependencies
 		ask_installation_prefix
@@ -130,9 +131,14 @@ private
 		File.open("source/.prefix.txt", "w") do |f|
 			f.write(@prefix)
 		end
-		ENV['C_INCLUDE_PATH'] = "#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['C_INCLUDE_PATH']}"
-		ENV['CPLUS_INCLUDE_PATH'] = "#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['CPLUS_INCLUDE_PATH']}"
-		ENV['LD_LIBRARY_PATH'] = "#{@prefix}/lib:#{ENV['LD_LIBRARY_PATH']}"
+		
+		if @destdir && !@destdir =~ /\/$/
+			@destdir += "/"
+		end
+		
+		ENV['C_INCLUDE_PATH'] = "#{@destdir}#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['C_INCLUDE_PATH']}"
+		ENV['CPLUS_INCLUDE_PATH'] = "#{@destdir}#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['CPLUS_INCLUDE_PATH']}"
+		ENV['LD_LIBRARY_PATH'] = "#{@destdir}#{@prefix}/lib:#{ENV['LD_LIBRARY_PATH']}"
 	end
 	
 	def configure_libunwind
@@ -166,13 +172,13 @@ private
 	def install_tcmalloc
 		return install_autoconf_package('source/vendor/google-perftools-0.97',
 		  'the memory allocator for Ruby Enterprise Edition') do
-			sh("mkdir", "-p", "#{@prefix}/lib") &&
+			sh("mkdir", "-p", "#{@destdir}#{@prefix}/lib") &&
 			if RUBY_PLATFORM =~ /darwin/
 				lib_extension = "dylib"
 			else
 				lib_extension = "so"
 			end
-			sh("cp .libs/libtcmalloc_minimal.#{lib_extension}* '#{@prefix}/lib/'")
+			sh("cp .libs/libtcmalloc_minimal.#{lib_extension}* '#{@destdir}#{@prefix}/lib/'")
 		end
 	end
 	
@@ -186,7 +192,7 @@ private
 			sh("mkdir -p .ext/common")
 			
 			if tcmalloc_supported?
-				return sh("make EXTLIBS='-Wl,-rpath,#{@prefix}/lib -L#{@prefix}/lib -ltcmalloc_minimal'")
+				return sh("make EXTLIBS='-Wl,-rpath,#{@prefix}/lib -L#{@destdir}#{@destdir}/lib -ltcmalloc_minimal'")
 			else
 				return sh("make")
 			end
@@ -198,17 +204,27 @@ private
 	end
 	
 	def install_rubygems
+		basedir = "#{@destdir}#{@prefix}/lib/ruby"
+		libdir = "#{basedir}/1.8"
+		archname = File.basename(File.dirname(Dir["#{libdir}/*/thread.so"].first))
+		extlibdir = "#{libdir}/#{archname}"
+		site_libdir = "#{basedir}/site_ruby/1.8"
+		site_extlibdir = "#{site_libdir}/#{archname}"
+		
+		ENV['RUBYLIB'] = "#{libdir}:#{extlibdir}:#{site_libdir}:#{site_extlibdir}"
+		puts ENV['RUBYLIB']
+		
 		Dir.chdir("rubygems") do
 			line
 			color_puts "<banner>Installing RubyGems...</banner>"
-			return sh("#{@prefix}/bin/ruby", "setup.rb", "--no-ri", "--no-rdoc")
+			return sh("#{@destdir}#{@prefix}/bin/ruby", "setup.rb", "--no-ri", "--no-rdoc")
 		end
 	end
 	
 	def install_useful_libraries
 		line
 		color_puts "<banner>Installing useful libraries...</banner>"
-		gem = "#{@prefix}/bin/ruby #{@prefix}/bin/gem"
+		gem = "#{@destdir}#{@prefix}/bin/ruby #{@destdir}#{@prefix}/bin/gem"
 		
 		gem_names = ["rails", "fastthread", "rack", "mysql", "sqlite3-ruby", "postgres"]
 		failed_gems = []
@@ -368,7 +384,7 @@ private
 			if block_given?
 				result = yield
 			else
-				result = sh("make install")
+				result = sh("make install DESTDIR='#{@destdir}'")
 			end
 			if result
 				return true
@@ -378,7 +394,7 @@ private
 				color_puts "<red>Cannot install #{name}</red>"
 				puts
 				color_puts "This installer was able to compile #{name}, but could not " <<
-					"install the files to <b>#{@prefix}</b>."
+					"install the files to <b>#{@destdir}#{@prefix}</b>."
 				puts
 				if Process.uid == 0
 					color_puts "This installer probably doesn't have permission " <<
@@ -406,6 +422,10 @@ parser = OptionParser.new do |opts|
 		options[:prefix] = dir
 	end
 	
+	opts.on("--destdir DIR", String) do |dir|
+		options[:destdir] = dir
+	end
+	
 	opts.on("-h", "--help", "Show this message") do
 		puts opts
 		exit
@@ -420,4 +440,4 @@ rescue OptionParser::ParseError => e
 	exit 1
 end
 
-Installer.new.start(options[:prefix])
+Installer.new.start(options[:prefix], options[:destdir])
