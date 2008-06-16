@@ -262,7 +262,7 @@ private
 		puts
 		color_puts "  <b>#{EMM_RUBY_WEBSITE}</b>"
 		puts
-		color_puts "Ejoy Ruby Enterprise Edition, a product of <yellow>Phusion (www.phusion.nl)</yellow> :-)"
+		color_puts "Enjoy Ruby Enterprise Edition, a product of <yellow>Phusion (www.phusion.nl)</yellow> :-)"
 	end
 
 private
