@@ -162,6 +162,14 @@ private
 		end
 	end
 	
+	def self.determine_ruby_libext
+		if RUBY_PLATFORM =~ /darwin/
+			return "bundle"
+		else
+			return "so"
+		end
+	end
+	
 	def self.determine_linux_distro
 		if RUBY_PLATFORM !~ /linux/
 			return nil
@@ -209,6 +217,7 @@ public
 	end
 	
 	LIBEXT = determine_libext
+	RUBYLIBEXT = determine_ruby_libext
 
 	# An identifier for the current Linux distribution. nil if the operating system is not Linux.
 	LINUX_DISTRO = determine_linux_distro

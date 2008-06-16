@@ -207,7 +207,7 @@ private
 	
 		basedir = "#{@destdir}#{@prefix}/lib/ruby"
 		libdir = "#{basedir}/1.8"
-		archname = File.basename(File.dirname(Dir["#{libdir}/*/thread.#{PlatformInfo::LIBEXT}"].first))
+		archname = File.basename(File.dirname(Dir["#{libdir}/*/thread.#{PlatformInfo::RUBYLIBEXT}"].first))
 		extlibdir = "#{libdir}/#{archname}"
 		site_libdir = "#{basedir}/site_ruby/1.8"
 		site_extlibdir = "#{site_libdir}/#{archname}"
