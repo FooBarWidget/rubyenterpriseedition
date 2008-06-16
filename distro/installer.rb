@@ -217,7 +217,7 @@ private
 				color_puts " <b>* #{gem_name}</b>"
 			end
 			puts
-			color_puts "These gems are not required, i.e. Ruby Enterprise Edition will work fine without them. But most people use Ruby Enterprise Edition in combination with Passenger and Ruby on Rails, which do require one or more of the aforementioned gems, so you may want to install them later."
+			color_puts "These gems are not required, i.e. Ruby Enterprise Edition will work fine without them. But most people use Ruby Enterprise Edition in combination with Phusion Passenger and Ruby on Rails, which do require one or more of the aforementioned gems, so you may want to install them later."
 			puts
 			color_puts "To install the aforementioned gems, please use the following command:"
 			color_puts "<yellow>#{gem} install #{failed_gems.join(' ')}</yellow>"

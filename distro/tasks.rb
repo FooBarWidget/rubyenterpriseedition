@@ -1,9 +1,34 @@
 REE_VERSION = "20080507"
+VENDOR_RUBY_VERSION = begin
+	data = File.read("version.h")
+	data =~ /RUBY_VERSION "(.*)"/
+	$1
+end
+DISTDIR = "ruby-enterprise-#{VENDOR_RUBY_VERSION}-#{REE_VERSION}"
+RUBYGEMS_URL = "http://rubyforge.org/frs/download.php/34638/rubygems-1.1.0.tgz"
+RUBYGEMS_PACKAGE = RUBYGEMS_URL.sub(/.*\//, '')
+
+desc "Create a distribution directory"
+task :distdir do
+	create_distdir
+end
 
 desc "Create a distribution package"
 task :package do
-	ruby_version = read_ruby_version
-	distdir = "ruby-enterprise-#{ruby_version}-#{REE_VERSION}"
+	create_distdir
+	ENV['GZIP'] = '--best'
+	sh "tar -czf #{DISTDIR}.tar.gz #{DISTDIR}"
+	sh "rm -rf #{DISTDIR}"
+end
+
+desc "Test the installer script"
+task :test_installer do
+	distdir = "/tmp/r8ee-test"
+	create_distdir(distdir)
+	sh "#{distdir}/installer"
+end
+
+def create_distdir(distdir = DISTDIR)
 	sh "rm -rf #{distdir}"
 	sh "mkdir #{distdir}"
 	
@@ -18,27 +43,17 @@ task :package do
 	sh "cp distro/installer distro/installer.rb distro/platform_info.rb distro/dependencies.rb #{distdir}/"
 	sh "cd #{distdir} && ln -s source/distro/runtime ."
 	File.open("#{distdir}/version.txt", "w") do |f|
-		f.write("#{ruby_version}-#{REE_VERSION}")
+		f.write("#{VENDOR_RUBY_VERSION}-#{REE_VERSION}")
 	end
 	
-	if Dir["distro/rubygems*.tgz"].empty?
+	if !File.exist?("distro/#{RUBYGEMS_PACKAGE}")
 		Dir.chdir("distro") do
-			sh "wget", "http://rubyforge.org/frs/download.php/35283/rubygems-1.1.1.tgz"
+			sh "wget", RUBYGEMS_URL
 		end
 	end
-	rubygems_archive = File.expand_path(Dir["distro/rubygems*.tgz"].first)
+	rubygems_package = File.expand_path("distro/#{RUBYGEMS_PACKAGE}")
 	Dir.chdir(distdir) do
-		sh "tar", "xzf", rubygems_archive
+		sh "tar", "xzf", rubygems_package
 		sh "mv rubygems* rubygems"
 	end
-	
-	ENV['GZIP'] = '--best'
-	sh "tar -czf #{distdir}.tar.gz #{distdir}"
-	sh "rm -rf #{distdir}"
-end
-
-def read_ruby_version
-	data = File.read("version.h")
-	data =~ /RUBY_VERSION "(.*)"/
-	return $1
 end
