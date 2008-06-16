@@ -204,6 +204,12 @@ private
 	end
 	
 	def install_rubygems
+		# We want to add the system's RubyGems path to our gem search path.
+		system_gem_path = nil
+		if PlatformInfo.find_command("ruby")
+			system_gem_path = `ruby -rubygems -e 'puts Gem.path.first'`.strip
+		end
+	
 		basedir = "#{@destdir}#{@prefix}/lib/ruby"
 		libdir = "#{basedir}/1.8"
 		archname = File.basename(File.dirname(Dir["#{libdir}/*/thread.so"].first))
@@ -222,8 +228,7 @@ private
 		end
 		
 		# Add the system's RubyGems path to our gem search path.
-		if PlatformInfo.find_command("ruby")
-			system_gem_path = `ruby -rubygems -e 'puts Gem.path.first'`.strip
+		if system_gem_path
 			File.open("#{site_libdir}/rubygems.rb", "a") do |f|
 				f.write("\n")
 				f.write("Gem.path << '#{system_gem_path}'\n")
