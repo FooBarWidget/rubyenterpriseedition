@@ -173,12 +173,7 @@ private
 		return install_autoconf_package('source/vendor/google-perftools-0.97',
 		  'the memory allocator for Ruby Enterprise Edition') do
 			sh("mkdir", "-p", "#{@destdir}#{@prefix}/lib") &&
-			if RUBY_PLATFORM =~ /darwin/
-				lib_extension = "dylib"
-			else
-				lib_extension = "so"
-			end
-			sh("cp .libs/libtcmalloc_minimal.#{lib_extension}* '#{@destdir}#{@prefix}/lib/'")
+			sh("cp .libs/libtcmalloc_minimal*.#{PlatformInfo::LIBEXT}* '#{@destdir}#{@prefix}/lib/'")
 		end
 	end
 	
@@ -212,7 +207,7 @@ private
 	
 		basedir = "#{@destdir}#{@prefix}/lib/ruby"
 		libdir = "#{basedir}/1.8"
-		archname = File.basename(File.dirname(Dir["#{libdir}/*/thread.so"].first))
+		archname = File.basename(File.dirname(Dir["#{libdir}/*/thread.#{PlatformInfo::LIBEXT}"].first))
 		extlibdir = "#{libdir}/#{archname}"
 		site_libdir = "#{basedir}/site_ruby/1.8"
 		site_extlibdir = "#{site_libdir}/#{archname}"
