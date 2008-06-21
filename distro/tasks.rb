@@ -1,4 +1,4 @@
-REE_VERSION = "20080507"
+REE_VERSION = "20080621"
 VENDOR_RUBY_VERSION = begin
 	data = File.read("version.h")
 	data =~ /RUBY_VERSION "(.*)"/
