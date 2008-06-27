@@ -21,7 +21,7 @@ class Installer
 		@destdir = destdir
 		@install_extra_gems = install_extra_gems
 		show_welcome_screen
-		check_dependencies
+		check_dependencies || exit(1)
 		ask_installation_prefix
 		
 		steps = []
@@ -111,6 +111,22 @@ private
 				puts
 			end
 			return false
+		end
+	end
+	
+	def print_dependency_installation_instructions(dep)
+		color_puts " * To install <yellow>#{dep.name}</yellow>:"
+		if !dep.install_command.nil?
+			color_puts "   Please run <b>#{dep.install_command}</b> as root."
+		elsif !dep.install_instructions.nil?
+			color_puts "   " << dep.install_instructions
+		elsif !dep.website.nil?
+			color_puts "   Please download it from <b>#{dep.website}</b>"
+			if !dep.website_comments.nil?
+				color_puts "   (#{dep.website_comments})"
+			end
+		else
+			color_puts "   Search Google."
 		end
 	end
 	
