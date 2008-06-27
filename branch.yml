@@ -6,3 +6,4 @@ description: A branch which does something awesome.
 exclude_from_patch:
   - Rakefile
   - branch.yml
+  - .gitignore
