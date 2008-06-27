@@ -320,7 +320,7 @@ private
 	end
 
 private
-	DEFAULT_TERMINAL_COLORS = "\e[0m"
+	DEFAULT_TERMINAL_COLORS = "\e[0m\e[37m\e[40m"
 
 	def color_puts(message)
 		puts substitute_color_tags(message)
