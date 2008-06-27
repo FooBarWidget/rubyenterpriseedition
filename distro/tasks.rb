@@ -35,7 +35,7 @@ task :fakeroot do
 	sh "rm -rf fakeroot"
 	sh "mkdir fakeroot"
 	fakeroot = File.expand_path("fakeroot")
-	sh "#{distdir}/installer --auto='/opt/ruby-enterprise' --destdir='#{fakeroot}'"
+	sh "#{distdir}/installer --auto='/opt/ruby-enterprise' --destdir='#{fakeroot} #{ENV['ARGS']}'"
 	puts "*** Ruby Enterprise Edition has been installed to #{fakeroot}"
 end
 

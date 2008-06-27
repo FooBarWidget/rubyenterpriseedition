@@ -14,11 +14,12 @@ class Installer
 		Dependencies::OpenSSL_Dev
 	]
 	
-	def start(auto_install_prefix = nil, destdir = nil)
+	def start(auto_install_prefix = nil, destdir = nil, install_extra_gems = false)
 		Dir.chdir(ROOT)
 		@version = File.read("version.txt")
 		@auto_install_prefix = auto_install_prefix
 		@destdir = destdir
+		@install_extra_gems = install_extra_gems
 		show_welcome_screen
 		check_dependencies
 		ask_installation_prefix
@@ -238,6 +239,11 @@ private
 		gem = "#{@destdir}#{@prefix}/bin/ruby #{@destdir}#{@prefix}/bin/gem"
 		
 		gem_names = ["rails", "fastthread", "rack", "mysql", "sqlite3-ruby", "postgres"]
+		if @install_extra_gems
+			gem_names += ["rails --version 2.0.2", "rails --version 1.2.6",
+				"rails --version 1.1.6", "mongrel", "hpricot", "thin",
+				"rake", "haml", "rspec", "mongrel_cluster"]
+		end
 		failed_gems = []
 		
 		if sh("#{gem} sources --update")
@@ -442,6 +448,10 @@ parser = OptionParser.new do |opts|
 		options[:destdir] = dir
 	end
 	
+	opts.on("--extra", "Install extra gems") do
+		options[:extra] = true
+	end
+	
 	opts.on("-h", "--help", "Show this message") do
 		puts opts
 		exit
@@ -456,4 +466,4 @@ rescue OptionParser::ParseError => e
 	exit 1
 end
 
-Installer.new.start(options[:prefix], options[:destdir])
+Installer.new.start(options[:prefix], options[:destdir], options[:extra])
