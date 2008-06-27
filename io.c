@@ -4851,8 +4851,9 @@ rb_f_select(argc, argv, obj)
 #if !defined(MSDOS) && !defined(__human68k__)
 static int
 io_cntl(fd, cmd, narg, io_p)
-    int fd, cmd, io_p;
+    int fd, io_p;
     long narg;
+    unsigned long cmd;
 {
     int retval;
 
@@ -4882,7 +4883,7 @@ rb_io_ctl(io, req, arg, io_p)
     int io_p;
 {
 #if !defined(MSDOS) && !defined(__human68k__)
-    int cmd = NUM2ULONG(req);
+    unsigned long cmd = NUM2ULONG(req);
     OpenFile *fptr;
     long len = 0;
     long narg = 0;
