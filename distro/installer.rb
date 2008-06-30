@@ -14,12 +14,13 @@ class Installer
 		Dependencies::OpenSSL_Dev
 	]
 	
-	def start(auto_install_prefix = nil, destdir = nil, install_extra_gems = false)
+	def start(options = {})
 		Dir.chdir(ROOT)
 		@version = File.read("version.txt")
-		@auto_install_prefix = auto_install_prefix
-		@destdir = destdir
-		@install_extra_gems = install_extra_gems
+		@auto_install_prefix = options[:prefix]
+		@destdir = options[:destdir]
+		@install_extra_gems = options[:extra]
+		@use_tcmalloc = options[:tcmalloc]
 		show_welcome_screen
 		check_dependencies || exit(1)
 		ask_installation_prefix
@@ -376,7 +377,7 @@ private
 	end
 	
 	def tcmalloc_supported?
-		return !platform_is_64_bit? && RUBY_PLATFORM !~ /darwin/
+		return @use_tcmalloc && !platform_is_64_bit? && RUBY_PLATFORM !~ /darwin/
 	end
 	
 	def libunwind_needed?
@@ -450,7 +451,7 @@ private
 	end
 end
 
-options = {}
+options = { :tcmalloc => true }
 parser = OptionParser.new do |opts|
 	opts.banner = "Usage: installer [options]"
 	opts.separator("")
@@ -459,15 +460,15 @@ parser = OptionParser.new do |opts|
 	"Automatically install to directory PREFIX\n#{' ' * 37}without any user interaction") do |dir|
 		options[:prefix] = dir
 	end
-	
 	opts.on("--destdir DIR", String) do |dir|
 		options[:destdir] = dir
 	end
-	
 	opts.on("--extra", "Install extra gems") do
 		options[:extra] = true
 	end
-	
+	opts.on("--no-tcmalloc", "Do not install tcmalloc support") do
+		options[:tcmalloc] = false
+	end
 	opts.on("-h", "--help", "Show this message") do
 		puts opts
 		exit
@@ -482,4 +483,4 @@ rescue OptionParser::ParseError => e
 	exit 1
 end
 
-Installer.new.start(options[:prefix], options[:destdir], options[:extra])
+Installer.new.start(options)
