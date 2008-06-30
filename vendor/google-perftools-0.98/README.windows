@@ -1,0 +1,45 @@
+This project has begun being ported to Windows.  A working solution
+file exists in this directory:
+    google-perftools.sln
+
+You can load this solution file into either VC++ 7.1 (Visual Studio
+2003) or VC++ 8.0 (Visual Studio 2005) -- in the latter case, it will
+automatically convert the files to the latest format for you.
+
+When you build the solution, it will create a number of unittests,
+which you can run by hand (or, more easily, under the Visual Studio
+debugger) to make sure everything is working properly on your system.
+The binaries will end up in a directory called "debug" or "release" in
+the top-level directory (next to the .sln file).
+
+Note that these systems are set to build in Debug mode by default.
+You may want to change them to Release mode.
+
+To use tcmalloc_minimal in your own projects, you should only need to
+build the dll and install it someplace, so you can link it into
+further binaries.  Note that the tcmalloc DLL is compiled with
+the "Multithreaded DLL" CRT library -- this is required so we can
+override malloc in user applications.  This means, to use the tcmalloc
+DLL, your applcation must link in the "Multithreaded DLL" CRT library
+as well.  (It is a TODO to try to remove this restriction in the
+future.)
+
+You can also link tcmalloc code in statically -- see the example
+project tcmalloc_minimal_unittest-static, which does this.  For this
+to work, you'll need to add "/D PERFTOOLS_DLL_DECL=" to the compile
+line of every perftools .cc file.  For reasons I don't fully
+understand yet, you still need to use the "DLL" CRT library even when
+statically linking.  Again, you can look at the
+tcmalloc_minimal_unittest-static project, which does this.
+
+Note that the other features of perftools, such as the cpu-profiler,
+heap-profiler, and leak-checker, have not yet been ported to Windows.
+
+I have little experience with Windows programming, so there may be
+better ways to set this up than I've done!  If you run across any
+problems, please post to the google-perftools Google Group, or report
+them on the google-perftools Google Code site:
+   http://groups.google.com/group/google-perftools
+   http://code.google.com/p/google-perftools/issues/list
+
+-- craig
