@@ -35,7 +35,10 @@ task :fakeroot do
 	sh "rm -rf fakeroot"
 	sh "mkdir fakeroot"
 	fakeroot = File.expand_path("fakeroot")
-	sh "#{distdir}/installer --auto='/opt/ruby-enterprise' --destdir='#{fakeroot} #{ENV['ARGS']}'"
+	sh "#{distdir}/installer --auto='/opt/ruby-enterprise' --destdir='#{fakeroot}' #{ENV['ARGS']}"
+	each_elf_binary(fakeroot) do |filename|
+		sh "strip --strip-debug '#{filename}'"
+	end
 	puts "*** Ruby Enterprise Edition has been installed to #{fakeroot}"
 end
 
@@ -67,5 +70,23 @@ def create_distdir(distdir = DISTDIR)
 	Dir.chdir(distdir) do
 		sh "tar", "xzf", rubygems_package
 		sh "mv rubygems* rubygems"
+	end
+end
+
+def elf_binary?(filename)
+	if File.executable?(filename)
+		return File.read(filename, 4) == "\177ELF"
+	else
+		return false
+	end
+end
+
+def each_elf_binary(dir, &block)
+	Dir["#{dir}/*"].each do |filename|
+		if File.directory?(filename)
+			each_elf_binary(filename, &block)
+		elsif elf_binary?(filename)
+			block.call(filename)
+		end
 	end
 end
