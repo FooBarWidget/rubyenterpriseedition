@@ -37,6 +37,14 @@ find_heap_slot_for_object(RVALUE *object)
 			return heap;
 		}
 	}
+	for (i = 0; i < frozen_heaps_used; i++) {
+		struct heaps_slot *heap = &frozen_heaps[i];
+		if (object >= heap->slot
+		 && object < heap->slotlimit) {
+			last_heap = heap;
+			return heap;
+		}
+	}
 	return NULL;
 }
 

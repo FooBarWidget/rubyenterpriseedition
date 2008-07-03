@@ -2193,7 +2193,7 @@ os_freeze(VALUE self)
 	frozen_heaps_used++;
     }
     heaps_used = 0;
-    heap_slots = HEAP_MIN_SLOTS * 1.8 * 1.8 * 1.8 * 1.8;
+    heap_slots = HEAP_MIN_SLOTS * 1.8 * 1.8 * 1.8 * 1.8 * 1.8;
     freelist = NULL;
     add_heap();
     return Qnil;
