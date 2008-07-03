@@ -2525,7 +2525,7 @@ Init_GC()
 
     rb_define_module_function(rb_mObSpace, "_id2ref", id2ref, 1);
 
-    rb_define_singleton_method(rb_mGC, "freeze!", os_freeze, 0);
+    rb_define_module_function(rb_mObSpace, "freeze!", os_freeze, 0);
     rb_define_module_function(rb_mObSpace, "statistics", os_statistics, 0);
 
     rb_gc_register_address(&rb_mObSpace);
