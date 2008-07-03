@@ -2,7 +2,7 @@ desc "Create a patch for upstream Ruby"
 task :make_patch do
 	require 'yaml'
 	branch_data = YAML::load_file('branch.yml')
-	upstream = ENV['upstream'] || 'master'
+	upstream = ENV['upstream'] || 'copy_on_write'
 	files = `git diff #{upstream} --stat | grep '|' | awk '{ print $1 }'`.split("\n")
 	files -= branch_data['exclude_from_patch'].map { |x| Dir[x] }.flatten
 	sh "git", "diff", "#{upstream}", *files
