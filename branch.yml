@@ -7,3 +7,4 @@ exclude_from_patch:
   - Rakefile
   - branch.yml
   - .gitignore
+  - gctools/*.rb

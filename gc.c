@@ -20,7 +20,14 @@
 #include "re.h"
 #include <stdio.h>
 #include <setjmp.h>
+#include <math.h>
 #include <sys/types.h>
+
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdarg.h>
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -166,6 +173,152 @@ static int need_call_final = 0;
 static st_table *finalizer_table = 0;
 
 
+/************************************************************
+ * Heap and copy-on-write debugging support functions
+ ************************************************************/
+
+/* Compound structure, containing debugging options. */
+static struct {
+    FILE *terminal;
+    
+    /* Whether to allocate Ruby heaps by mmapping a file. This makes it easier to see how many
+     * bytes in heaps have been made dirty, using memory analysis tools.
+     */
+    int alloc_heap_with_file;
+
+    /* Whether to ask the user to press Enter, before garbage collection starts.
+     * Can be used to check how many pages are made dirty by the garbage collector.
+     */
+    int prompt_before_gc;
+    
+    /* Whether to ask the user to press Enter before the sweep phase of the garbage
+     * collector starts. */
+    int prompt_before_sweep;
+    
+    /* Whether to ask the user to press Enter after the sweep phase of the garbage
+     * collector starts. */
+    int prompt_after_sweep;
+    
+    int print_sweeped_objects;
+} debug_options;
+
+#define OPTION_ENABLED(name) (getenv((name)) && *getenv((name)) && *getenv((name)) != '0')
+
+static VALUE
+rb_gc_init_debugging(VALUE self)
+{
+    if (debug_options.terminal != NULL) {
+	fclose(debug_options.terminal);
+	debug_options.terminal = NULL;
+    }
+    if (getenv("RD_TERMINAL")) {
+	debug_options.terminal = fopen(getenv("RD_TERMINAL"), "a+");
+	if (debug_options.terminal == NULL) {
+	    int e = errno;
+	    fprintf(stderr, "Cannot open %s: %s (%d)\n", getenv("RD_TERMINAL"), strerror(e), e);
+	    fflush(stderr);
+	}
+    }
+    debug_options.alloc_heap_with_file  = OPTION_ENABLED("RD_ALLOC_HEAP_WITH_FILE");
+    debug_options.prompt_before_gc      = OPTION_ENABLED("RD_PROMPT_BEFORE_GC");
+    debug_options.prompt_before_sweep   = OPTION_ENABLED("RD_PROMPT_BEFORE_SWEEP");
+    debug_options.prompt_after_sweep    = OPTION_ENABLED("RD_PROMPT_AFTER_SWEEP");
+    debug_options.print_sweeped_objects = OPTION_ENABLED("RD_PRINT_SWEEPED_OBJECTS");
+    return Qnil;
+}
+
+static void
+debug_print(const char *message, ...)
+{
+    va_list ap;
+    
+    va_start(ap, message);
+    if (debug_options.terminal != NULL) {
+	vfprintf(debug_options.terminal, message, ap);
+	fflush(debug_options.terminal);
+    } else {
+	vfprintf(stderr, message, ap);
+	fflush(stderr);
+    }
+    va_end(ap);
+}
+
+#define debug_prompt(prompt) \
+    do { \
+	if (debug_options.terminal != NULL) { \
+	    fprintf(debug_options.terminal, prompt); \
+	    fflush(debug_options.terminal); \
+	    getc(debug_options.terminal); \
+	} else { \
+	    fprintf(stderr, prompt); \
+	    fflush(stderr); \
+	    getchar(); \
+	} \
+    } while (0)
+
+
+/************************************
+ * Heap (de)allocation functions
+ ************************************/
+
+typedef struct {
+    int fd;
+    size_t size;
+} FileHeapAllocatorMetaData;
+
+static void *
+alloc_ruby_heap_with_file(size_t size)
+{
+    FileHeapAllocatorMetaData meta;
+    meta.fd = open("/dev/zero", O_RDONLY);
+    meta.size = size;
+    if (meta.fd == -1) {
+	return NULL;
+    } else {
+	void *memory = mmap(NULL, size + sizeof(meta), PROT_READ | PROT_WRITE,
+	                    MAP_PRIVATE, meta.fd, 0);
+	if (memory == NULL) {
+	    return NULL;
+	} else {
+	    memcpy(memory, &meta, sizeof(meta));
+	    return memory + sizeof(meta);
+	}
+    }
+}
+
+static void *
+alloc_ruby_heap(size_t size)
+{
+    if (debug_options.alloc_heap_with_file) {
+	return alloc_ruby_heap_with_file(size);
+    } else {
+	return malloc(size);
+    }
+}
+
+static void
+free_ruby_heap_with_file(void *heap)
+{
+    FileHeapAllocatorMetaData *meta = (FileHeapAllocatorMetaData *)
+        (heap - sizeof(FileHeapAllocatorMetaData));
+    close(meta->fd);
+    munmap(heap, meta->size + sizeof(FileHeapAllocatorMetaData));
+}
+
+static void
+free_ruby_heap(void *heap)
+{
+    if (debug_options.alloc_heap_with_file) {
+	free_ruby_heap_with_file(heap);
+    } else {
+	free(heap);
+    }
+}
+
+
+/*******************************************************************/
+
+
 /*
  *  call-seq:
  *     GC.enable    => true or false
@@ -305,6 +458,9 @@ static struct heaps_slot {
     void *membase;
     RVALUE *slot;
     int limit;
+    RVALUE *slotlimit;
+    int *marks;
+    int marks_size;
 } *heaps;
 static int heaps_length = 0;
 static int heaps_used   = 0;
@@ -319,6 +475,12 @@ static int heap_slots = HEAP_MIN_SLOTS;
 #define FREE_MIN  4096
 
 static RVALUE *himem, *lomem;
+
+#include "marktable.h"
+#include "marktable.c"
+#include "fastmarktable.c"
+
+static int gc_cycles = 0;
 
 static void
 add_heap()
@@ -344,7 +506,7 @@ add_heap()
     }
 
     for (;;) {
-	RUBY_CRITICAL(p = (RVALUE*)malloc(sizeof(RVALUE)*(heap_slots+1)));
+	RUBY_CRITICAL(p = (RVALUE*)alloc_ruby_heap(sizeof(RVALUE)*(heap_slots+1)));
 	if (p == 0) {
 	    if (heap_slots == HEAP_MIN_SLOTS) {
 		rb_memerror();
@@ -359,6 +521,9 @@ add_heap()
             p = (RVALUE*)((VALUE)p + sizeof(RVALUE) - ((VALUE)p % sizeof(RVALUE)));
         heaps[heaps_used].slot = p;
         heaps[heaps_used].limit = heap_slots;
+        heaps[heaps_used].slotlimit = p + heap_slots;
+        heaps[heaps_used].marks_size = (int) (ceil(heap_slots / (sizeof(int) * 8.0)));
+        heaps[heaps_used].marks = (int *) calloc(heaps[heaps_used].marks_size, sizeof(int));
 	break;
     }
     pend = p + heap_slots;
@@ -387,6 +552,7 @@ rb_newobj()
     obj = (VALUE)freelist;
     freelist = freelist->as.free.next;
     MEMZERO((void*)obj, RVALUE, 1);
+    RANY(obj)->as.free.flags = FL_ALLOCATED;
 #ifdef GC_DEBUG
     RANY(obj)->file = ruby_sourcefile;
     RANY(obj)->line = ruby_sourceline;
@@ -435,7 +601,7 @@ static unsigned int STACK_LEVEL_MAX = 655300;
 #endif
 
 #ifdef C_ALLOCA
-# define SET_STACK_END VALUE stack_end; alloca(0);
+# define SET_STACK_END VALUE stack_end = 0; alloca(0);
 # define STACK_END (&stack_end)
 #else
 # if defined(__GNUC__) && defined(USE_BUILTIN_FRAME_ADDRESS) && !defined(__ia64)
@@ -545,7 +711,7 @@ mark_source_filename(f)
     char *f;
 {
     if (f) {
-	f[-1] = 1;
+	rb_mark_table_add_filename(f);
     }
 }
 
@@ -553,11 +719,12 @@ static int
 sweep_source_filename(key, value)
     char *key, *value;
 {
-    if (*value) {
-	*value = 0;
+    if (rb_mark_table_contains_filename(value + 1)) {
+	rb_mark_table_remove_filename(value + 1);
 	return ST_CONTINUE;
     }
     else {
+	rb_mark_table_remove_filename(value + 1);
 	free(value);
 	return ST_DELETE;
     }
@@ -570,14 +737,16 @@ static void
 gc_mark_all()
 {
     RVALUE *p, *pend;
+    struct heaps_slot *heap;
     int i;
 
     init_mark_stack();
     for (i = 0; i < heaps_used; i++) {
-	p = heaps[i].slot; pend = p + heaps[i].limit;
+	heap = &heaps[i];
+	p = heap->slot; pend = heap->slotlimit;
 	while (p < pend) {
-	    if ((p->as.basic.flags & FL_MARK) &&
-		(p->as.basic.flags != FL_MARK)) {
+	    if (rb_mark_table_heap_contains(heap, p) &&
+		(p->as.basic.flags != FL_ALLOCATED)) {
 		gc_mark_children((VALUE)p, 0);
 	    }
 	    p++;
@@ -727,8 +896,8 @@ gc_mark(ptr, lev)
     obj = RANY(ptr);
     if (rb_special_const_p(ptr)) return; /* special const not marked */
     if (obj->as.basic.flags == 0) return;       /* free cell */
-    if (obj->as.basic.flags & FL_MARK) return;  /* already marked */
-    obj->as.basic.flags |= FL_MARK;
+    if (rb_mark_table_contains(obj)) return;  /* already marked */
+    rb_mark_table_add(obj);
 
     if (lev > GC_LEVEL_MAX || (lev == 0 && ruby_stack_check())) {
 	if (!mark_stack_overflow) {
@@ -765,8 +934,8 @@ gc_mark_children(ptr, lev)
     obj = RANY(ptr);
     if (rb_special_const_p(ptr)) return; /* special const not marked */
     if (obj->as.basic.flags == 0) return;       /* free cell */
-    if (obj->as.basic.flags & FL_MARK) return;  /* already marked */
-    obj->as.basic.flags |= FL_MARK;
+    if (rb_mark_table_contains(obj)) return;  /* already marked */
+    rb_mark_table_add(obj);
 
   marking:
     if (FL_TEST(obj, FL_EXIVAR)) {
@@ -1017,9 +1186,14 @@ finalize_list(p)
     while (p) {
 	RVALUE *tmp = p->as.free.next;
 	run_final((VALUE)p);
-	if (!FL_TEST(p, FL_SINGLETON)) { /* not freeing page */
+	/* Don't free objects that are singletons, or objects that are already freed.
+	 * The latter is to prevent the unnecessary marking of memory pages as dirty,
+	 * which can destroy copy-on-write semantics.
+	 */
+	if (!FL_TEST(p, FL_SINGLETON) && p->as.free.flags != 0) {
 	    p->as.free.flags = 0;
 	    p->as.free.next = freelist;
+	    rb_mark_table_remove(p);
 	    freelist = p;
 	}
 	p = tmp;
@@ -1033,7 +1207,8 @@ free_unused_heaps()
 
     for (i = j = 1; j < heaps_used; i++) {
 	if (heaps[i].limit == 0) {
-	    free(heaps[i].membase);
+	    free_ruby_heap(heaps[i].membase);
+	    free(heaps[i].marks);
 	    heaps_used--;
 	}
 	else {
@@ -1055,6 +1230,7 @@ gc_sweep()
     int i;
     unsigned long live = 0;
     unsigned long free_min = 0;
+    struct heaps_slot *heap;
 
     for (i = 0; i < heaps_used; i++) {
         free_min += heaps[i].limit;
@@ -1067,9 +1243,11 @@ gc_sweep()
 	/* should not reclaim nodes during compilation
            if yacc's semantic stack is not allocated on machine stack */
 	for (i = 0; i < heaps_used; i++) {
-	    p = heaps[i].slot; pend = p + heaps[i].limit;
+	    heap = &heaps[i];
+
+	    p = heap->slot; pend = heap->slotlimit;
 	    while (p < pend) {
-		if (!(p->as.basic.flags&FL_MARK) && BUILTIN_TYPE(p) == T_NODE)
+		if (!rb_mark_table_heap_contains(heap, p) && BUILTIN_TYPE(p) == T_NODE)
 		    gc_mark((VALUE)p, 0);
 		p++;
 	    }
@@ -1088,31 +1266,41 @@ gc_sweep()
 	int n = 0;
 	RVALUE *free = freelist;
 	RVALUE *final = final_list;
+	struct heaps_slot *heap = &heaps[i];
 
-	p = heaps[i].slot; pend = p + heaps[i].limit;
+	p = heap->slot; pend = heap->slotlimit;
 	while (p < pend) {
-	    if (!(p->as.basic.flags & FL_MARK)) {
+	    if (!rb_mark_table_heap_contains(heap, p)) {
 		if (p->as.basic.flags) {
+		    if (debug_options.print_sweeped_objects) {
+			debug_print("Sweeped object: %p\n", (void *) p);
+		    }
 		    obj_free((VALUE)p);
 		}
 		if (need_call_final && FL_TEST(p, FL_FINALIZE)) {
-		    p->as.free.flags = FL_MARK; /* remain marked */
+		    /* This object has a finalizer, so don't free it right now, but do it later. */
+		    rb_mark_table_heap_add(heap, p); /* remain marked */
 		    p->as.free.next = final_list;
 		    final_list = p;
 		}
 		else {
-		    p->as.free.flags = 0;
-		    p->as.free.next = freelist;
+		    /* Do not touch the fields if they don't have to be modified.
+		     * This is in order to preserve copy-on-write semantics.
+		     */
+		    if (p->as.free.flags != 0)
+			p->as.free.flags = 0;
+		    if (p->as.free.next != freelist)
+			p->as.free.next = freelist;
 		    freelist = p;
 		}
 		n++;
 	    }
-	    else if (RBASIC(p)->flags == FL_MARK) {
+	    else if (RBASIC(p)->flags == FL_ALLOCATED) {
 		/* objects to be finalized */
 		/* do nothing remain marked */
 	    }
 	    else {
-		RBASIC(p)->flags &= ~FL_MARK;
+		rb_mark_table_heap_remove(heap, p);
 		live++;
 	    }
 	    p++;
@@ -1154,6 +1342,7 @@ rb_gc_force_recycle(p)
 {
     RANY(p)->as.free.flags = 0;
     RANY(p)->as.free.next = freelist;
+    rb_mark_table_remove((RVALUE *) p);
     freelist = RANY(p);
 }
 
@@ -1350,6 +1539,10 @@ garbage_collect()
     if (during_gc) return;
     during_gc++;
 
+    if (debug_options.prompt_before_gc) {
+	debug_prompt("Press Enter to initiate garbage collection.\n");
+    }
+    rb_mark_table_prepare();
     init_mark_stack();
 
     gc_mark((VALUE)ruby_current_node, 0);
@@ -1373,6 +1566,7 @@ garbage_collect()
 
     FLUSH_REGISTER_WINDOWS;
     /* This assumes that all registers are saved into the jmp_buf (and stack) */
+    memset(save_regs_gc_mark, 0, sizeof(save_regs_gc_mark));
     setjmp(save_regs_gc_mark);
     mark_locations_array((VALUE*)save_regs_gc_mark, sizeof(save_regs_gc_mark) / sizeof(VALUE *));
 #if STACK_GROW_DIRECTION < 0
@@ -1424,7 +1618,15 @@ garbage_collect()
 	rb_gc_abort_threads();
     } while (!MARK_STACK_EMPTY);
 
+    if (debug_options.prompt_before_sweep) {
+	debug_prompt("Press Enter to initiate sweeping phase.\n");
+    }
     gc_sweep();
+    if (debug_options.prompt_after_sweep) {
+	debug_prompt("Press Enter to confirm finalization of sweeping phase.\n");
+    }
+    rb_mark_table_finalize();
+    gc_cycles++;
 }
 
 void
@@ -1449,6 +1651,17 @@ rb_gc_start()
 {
     rb_gc();
     return Qnil;
+}
+
+int
+rb_gc_is_thread_marked(the_thread)
+    VALUE the_thread;
+{
+	if (FL_ABLE(the_thread)) {
+		return rb_mark_table_contains((RVALUE *) the_thread);
+	} else {
+		return 0;
+	}
 }
 
 void
@@ -1603,6 +1816,9 @@ void ruby_init_stack(VALUE *addr
 void
 Init_heap()
 {
+    rb_gc_init_debugging((VALUE) NULL);
+    rb_use_fast_mark_table();
+    rb_mark_table_init();
     if (!rb_gc_stack_start) {
 	Init_stack(0);
     }
@@ -1909,6 +2125,7 @@ void
 rb_gc_call_finalizer_at_exit()
 {
     RVALUE *p, *pend;
+    struct heaps_slot *heap;
     int i;
 
     /* run finalizers */
@@ -1930,11 +2147,13 @@ rb_gc_call_finalizer_at_exit()
     }
     /* run data object's finalizers */
     for (i = 0; i < heaps_used; i++) {
-	p = heaps[i].slot; pend = p + heaps[i].limit;
+	heap = &heaps[i];
+	p = heap->slot; pend = heap->slotlimit;
 	while (p < pend) {
 	    if (BUILTIN_TYPE(p) == T_DATA &&
 		DATA_PTR(p) && RANY(p)->as.data.dfree) {
 		p->as.free.flags = 0;
+		rb_mark_table_heap_remove(heap, p);
 		if ((long)RANY(p)->as.data.dfree == -1) {
 		    RUBY_CRITICAL(free(DATA_PTR(p)));
 		}
@@ -1944,6 +2163,7 @@ rb_gc_call_finalizer_at_exit()
 	    }
 	    else if (BUILTIN_TYPE(p) == T_FILE) {
 		p->as.free.flags = 0;
+		rb_mark_table_heap_remove(heap, p);
 		rb_io_fptr_finalize(RANY(p)->as.file.fptr);
 	    }
 	    p++;
@@ -2089,6 +2309,189 @@ rb_obj_id(VALUE obj)
     return (VALUE)((long)obj|FIXNUM_FLAG);
 }
 
+static VALUE
+os_statistics()
+{
+    int i;
+    int n = 0;
+    unsigned int objects = 0;
+    unsigned int total_objects_size = 0;
+    unsigned int total_heap_size = 0;
+    unsigned int total_heap_slots = 0;
+    unsigned int ast_nodes = 0;
+    char message[1024];
+    unsigned int total_leading_free_slots = 0;
+    unsigned int total_trailing_free_slots = 0;
+    const unsigned int group_size = 16;
+    unsigned int contiguous_free_groups = 0;
+    unsigned int terminal_objects = 0; /* Number of objects that cannot possibly refer to other objects. */
+
+    for (i = 0; i < heaps_used; i++) {
+	RVALUE *p, *pend;
+	unsigned int leading_free_slots = 0;
+	unsigned int trailing_free_slots = 0;
+	unsigned int slot_index = 0;
+	unsigned int free_slots_in_current_group = 0;
+	enum { BEGIN, MIDDLE, END } mode = BEGIN;
+
+	p = heaps[i].slot;
+	pend = p + heaps[i].limit;
+	for (;p < pend; p++, slot_index++) {
+	    switch (mode) {
+	    case BEGIN:
+		if (p->as.basic.flags) {
+		    mode = MIDDLE;
+		} else {
+		    leading_free_slots++;
+		}
+		break;
+	    case MIDDLE:
+		if (p->as.basic.flags == 0) {
+		    mode = END;
+		    trailing_free_slots++;
+		}
+		break;
+	    case END:
+		if (p->as.basic.flags == 0) {
+		    trailing_free_slots++;
+		} else {
+		    trailing_free_slots = 0;
+		    mode = MIDDLE;
+		}
+		break;
+	    };
+	    
+	    if (slot_index % group_size == 0) {
+		if (free_slots_in_current_group == group_size) {
+		    contiguous_free_groups++;
+		}
+		free_slots_in_current_group = 0;
+	    }
+	    if (p->as.basic.flags == 0) {
+		free_slots_in_current_group++;
+	    }
+	    
+	    if (p->as.basic.flags) {
+		int isAST = 0;
+		switch (TYPE(p)) {
+		  case T_ICLASS:
+		  case T_VARMAP:
+		  case T_SCOPE:
+		  case T_NODE:
+		    isAST = 1;
+		    break;
+		  case T_CLASS:
+		    if (FL_TEST(p, FL_SINGLETON)) {
+		        isAST = 1;
+		        break;
+		    }
+		  case T_FILE:
+		  case T_REGEXP:
+		  case T_FLOAT:
+		  case T_BIGNUM:
+		  case T_BLKTAG:
+		    terminal_objects++;
+		    break;
+		  default:
+		    break;
+		}
+		objects++;
+		if (isAST) {
+		   ast_nodes++;
+		}
+	    }
+	}
+	total_heap_size += (void *) pend - heaps[i].membase;
+	total_leading_free_slots += leading_free_slots;
+	total_trailing_free_slots += trailing_free_slots;
+    }
+
+    total_objects_size = objects * sizeof(RVALUE);
+    total_heap_slots = total_heap_size / sizeof(RVALUE);
+    snprintf(message, sizeof(message),
+        "Number of objects    : %d (%d AST nodes, %.2f%%)\n"
+        "Heap slot size       : %d\n"
+        "GC cycles so far     : %d\n"
+        "Number of heaps      : %d\n"
+        "Total size of objects: %.2f KB\n"
+        "Total size of heaps  : %.2f KB (%.2f KB = %.2f%% unused)\n"
+        "Leading free slots   : %d (%.2f KB = %.2f%%)\n"
+        "Trailing free slots  : %d (%.2f KB = %.2f%%)\n"
+        "Number of contiguous groups of %d slots: %d (%.2f%%)\n"
+        "Number of terminal objects: %d (%.2f%%)\n",
+        objects, ast_nodes, ast_nodes * 100 / (double) objects,
+        sizeof(RVALUE),
+        gc_cycles,
+        heaps_used,
+        total_objects_size / 1024.0,
+        total_heap_size / 1024.0,
+        (total_heap_size - total_objects_size) / 1024.0,
+        (total_heap_size - total_objects_size) * 100.0 / total_heap_size,
+        total_leading_free_slots,
+        total_leading_free_slots * sizeof(RVALUE) / 1024.0,
+        total_leading_free_slots * 100.0 / total_heap_slots,
+        total_trailing_free_slots,
+        total_trailing_free_slots * sizeof(RVALUE) / 1024.0,
+        total_trailing_free_slots * 100.0 / total_heap_slots,
+        group_size,
+        contiguous_free_groups,
+        (contiguous_free_groups * group_size * 100.0) / total_heap_slots,
+        terminal_objects,
+        terminal_objects * 100.0 / total_heap_slots
+    );
+    return rb_str_new2(message);
+}
+
+/*
+ *  call-seq:
+ *     GC.copy_on_write_friendly?     => true or false
+ *
+ *  Returns whether the garbage collector is copy-on-write friendly.
+ *
+ *  This method only has meaning on platforms that support the _fork_ system call.
+ *  Please consult the documentation for GC.copy_on_write_friendly= for additional
+ *  notes.
+ */
+static VALUE
+rb_gc_copy_on_write_friendly()
+{
+    if (rb_mark_table_init == rb_fast_mark_table_init) {
+	return Qtrue;
+    } else {
+	return Qfalse;
+    }
+}
+
+/*
+ *  call-seq:
+ *     GC.copy_on_write_friendly = _boolean_
+ *
+ *  Tell the garbage collector whether to be copy-on-write friendly.
+ *
+ *  Note that this is an implementation detail of the garbage collector. On some Ruby
+ *  implementations, the garbage collector may always be copy-on-write friendly. In that
+ *  case, this method will do nothing. Furthermore, copy-on-write friendliness has no
+ *  meaning on some platforms (such as Microsoft Windows), so setting this flag on those
+ *  platform is futile.
+ *
+ *  Please keep in mind that this flag is only advisory. Do not rely on it for anything
+ *  truly important.
+ *
+ *  In the mainline Ruby implementation, the copy-on-write friendly garbage collector is
+ *  slightly slower the non-copy-on-write friendly version.
+ */
+static VALUE
+rb_gc_set_copy_on_write_friendly(VALUE self, VALUE val)
+{
+    if (RTEST(val)) {
+	rb_use_bf_mark_table();
+    } else {
+	rb_use_fast_mark_table();
+    }
+    rb_mark_table_init();
+    return Qnil;
+}
+
 /*
  *  The <code>GC</code> module provides an interface to Ruby's mark and
  *  sweep garbage collection mechanism. Some of the underlying methods
@@ -2105,6 +2508,9 @@ Init_GC()
     rb_define_singleton_method(rb_mGC, "enable", rb_gc_enable, 0);
     rb_define_singleton_method(rb_mGC, "disable", rb_gc_disable, 0);
     rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
+    rb_define_singleton_method(rb_mGC, "initialize_debugging", rb_gc_init_debugging, 0);
+    rb_define_singleton_method(rb_mGC, "copy_on_write_friendly?", rb_gc_copy_on_write_friendly, 0);
+    rb_define_singleton_method(rb_mGC, "copy_on_write_friendly=", rb_gc_set_copy_on_write_friendly, 1);
 
     rb_mObSpace = rb_define_module("ObjectSpace");
     rb_define_module_function(rb_mObSpace, "each_object", os_each_obj, -1);
@@ -2120,6 +2526,7 @@ Init_GC()
     rb_define_module_function(rb_mObSpace, "_id2ref", id2ref, 1);
 
     rb_define_singleton_method(rb_mGC, "freeze!", os_freeze, 0);
+    rb_define_module_function(rb_mObSpace, "statistics", os_statistics, 0);
 
     rb_gc_register_address(&rb_mObSpace);
     rb_global_variable(&finalizers);
