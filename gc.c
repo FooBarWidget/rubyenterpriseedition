@@ -1953,6 +1953,34 @@ rb_gc_call_finalizer_at_exit()
 
 /*
  *  call-seq:
+ *     ObjectSpace.freeze!
+ *
+ *  After calling this method, all currently allocated objects will
+ *  no longer be eligible for garbage collection.
+ */
+static VALUE
+os_freeze(VALUE self)
+{
+    int i;
+    
+    if (frozen_heaps_length < frozen_heaps_used + heaps_used) {
+	frozen_heaps = realloc(frozen_heaps, sizeof(struct heaps_slot) *
+		(frozen_heaps_used + heaps_used));
+	frozen_heaps_length = frozen_heaps_used + heaps_used;
+    }
+    for (i = 0; i < heaps_used; i++) {
+	frozen_heaps[frozen_heaps_used] = heaps[i];
+	frozen_heaps_used++;
+    }
+    heaps_used = 0;
+    heap_slots = HEAP_MIN_SLOTS * 1.8 * 1.8 * 1.8 * 1.8;
+    freelist = NULL;
+    add_heap();
+    return Qnil;
+}
+
+/*
+ *  call-seq:
  *     ObjectSpace._id2ref(object_id) -> an_object
  *
  *  Converts an object id to a reference to the object. May not be
