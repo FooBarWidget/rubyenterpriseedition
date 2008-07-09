@@ -297,6 +297,13 @@ private
 		Dir.chdir("#{@destdir}#{@prefix}/bin") do
 			sh "sed -i 's|^#!.*$|#!#{@prefix}/bin/ruby|' *"
 		end
+		Dir.chdir("#{@destdir}#{@prefix}/lib/ruby/gems/1.8/gems") do
+			if !Dir["sqlite3-ruby*"].empty?
+				# The sqlite3-ruby gem installs files with wrong permissions.
+				# We fix this.
+				sh "chmod -R g+r,o+r sqlite3-ruby*"
+			end
+		end
 	end
 	
 	def show_finalization_screen
