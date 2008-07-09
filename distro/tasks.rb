@@ -1,4 +1,4 @@
-REE_VERSION = "20080621"
+REE_VERSION = "20080709"
 VENDOR_RUBY_VERSION = begin
 	data = File.read("version.h")
 	data =~ /RUBY_VERSION "(.*)"/
@@ -40,6 +40,13 @@ task :fakeroot do
 		sh "strip --strip-debug '#{filename}'"
 	end
 	puts "*** Ruby Enterprise Edition has been installed to #{fakeroot}"
+end
+
+task 'package:debian' do
+	Rake::Task['fakeroot'].invoke unless File.directory?('fakeroot')
+	sh "cp -R distro/debian fakeroot/DEBIAN" unless File.directory?('fakeroot/DEBIAN')
+	sh "chown -R root:root fakeroot"
+	sh "dpkg -b fakeroot ruby-enterprise_#{VENDOR_RUBY_VERSION}-#{REE_VERSION}-i386.deb"
 end
 
 def create_distdir(distdir = DISTDIR)
