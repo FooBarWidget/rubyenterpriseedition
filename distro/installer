@@ -9,5 +9,7 @@ if ruby -e '' 2>/dev/null; then
 	exec ruby installer.rb "$@"
 else
 	#echo "Using 'runtime/$platform/ruby'"
+	RUBYOPT=""
+	export RUBYOPT
 	exec "runtime/$platform/ruby" installer.rb "$@"
 fi
