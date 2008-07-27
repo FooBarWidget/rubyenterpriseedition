@@ -14,6 +14,7 @@
 #include "version.h"
 #include <stdio.h>
 
+const char ruby_engine[] = RUBY_ENGINE;
 const char ruby_version[] = RUBY_VERSION;
 const char ruby_release_date[] = RUBY_RELEASE_DATE;
 const char ruby_platform[] = RUBY_PLATFORM;
@@ -22,10 +23,12 @@ const int ruby_patchlevel = RUBY_PATCHLEVEL;
 void
 Init_version()
 {
+    VALUE e = rb_obj_freeze(rb_str_new2(ruby_engine));
     VALUE v = rb_obj_freeze(rb_str_new2(ruby_version));
     VALUE d = rb_obj_freeze(rb_str_new2(ruby_release_date));
     VALUE p = rb_obj_freeze(rb_str_new2(ruby_platform));
 
+    rb_define_global_const("RUBY_ENGINE", e);
     rb_define_global_const("RUBY_VERSION", v);
     rb_define_global_const("RUBY_RELEASE_DATE", d);
     rb_define_global_const("RUBY_PLATFORM", p);
