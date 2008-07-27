@@ -311,9 +311,9 @@ private
 		color_puts "<banner>Ruby Enterprise Edition is successfully installed!</banner>"
 		color_puts "If you're using <yellow>Phusion Passenger (#{PASSENGER_WEBSITE})</yellow>,"
 		color_puts "and you want it to use Ruby Enterprise Edition, then edit your Apache"
-		color_puts "configuration file, and change the 'RailsRuby' option:"
+		color_puts "configuration file, and change the 'PassengerRuby' option:"
 		puts
-		color_puts "  <b>RailsRuby #{@prefix}/bin/ruby</b>"
+		color_puts "  <b>PassengerRuby #{@prefix}/bin/ruby</b>"
 		puts
 		color_puts "If you ever want to uninstall Ruby Enterprise Edition, simply remove this"
 		color_puts "directory:"
