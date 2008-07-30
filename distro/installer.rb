@@ -21,6 +21,11 @@ class Installer
 		@destdir = options[:destdir]
 		@install_extra_gems = options[:extra]
 		@use_tcmalloc = options[:tcmalloc]
+		
+		if RUBY_PLATFORM =~ /darwin/
+			ENV['PATH'] = "#{ENV['PATH']}:/usr/local/mysql/bin"
+		end
+		
 		show_welcome_screen
 		check_dependencies || exit(1)
 		ask_installation_prefix
@@ -262,7 +267,14 @@ private
 		color_puts "<banner>Installing useful libraries...</banner>"
 		gem = "#{@destdir}#{@prefix}/bin/ruby #{@destdir}#{@prefix}/bin/gem"
 		
-		gem_names = ["rails", "fastthread", "rack", "mysql", "sqlite3-ruby", "postgres"]
+		mysql_config = PlatformInfo.find_command('mysql_config')
+		if mysql_config
+			mysql_gem = "mysql -- --with--mysql-config='#{mysql_config}'"
+		else
+			mysql_gem = "mysql"
+		end
+		
+		gem_names = ["rails", "fastthread", "rack", mysql_gem, "sqlite3-ruby", "postgres"]
 		if @install_extra_gems
 			gem_names += ["rails --version 2.0.2", "rails --version 1.2.6",
 				"rails --version 1.1.6", "mongrel", "hpricot", "thin",
