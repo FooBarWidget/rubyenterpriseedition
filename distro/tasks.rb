@@ -49,6 +49,29 @@ task 'package:debian' do
 	sh "dpkg -b fakeroot ruby-enterprise_#{VENDOR_RUBY_VERSION}-#{REE_VERSION}-i386.deb"
 end
 
+# Check whether the specified command is in $PATH, and return its
+# absolute filename. Returns nil if the command is not found.
+#
+# This function exists because system('which') doesn't always behave
+# correctly, for some weird reason.
+def self.find_command(name)
+	ENV['PATH'].split(File::PATH_SEPARATOR).detect do |directory|
+		path = File.join(directory, name.to_s)
+		if File.executable?(path)
+			return path
+		end
+	end
+	return nil
+end
+
+def download(url)
+	if find_command('wget')
+		sh "wget", RUBYGEMS_URL
+	else
+		sh "curl", "-O", "-L", RUBYGEMS_URL
+	end
+end
+
 def create_distdir(distdir = DISTDIR)
 	sh "rm -rf #{distdir}"
 	sh "mkdir #{distdir}"
@@ -70,7 +93,7 @@ def create_distdir(distdir = DISTDIR)
 	
 	if !File.exist?("distro/#{RUBYGEMS_PACKAGE}")
 		Dir.chdir("distro") do
-			sh "wget", RUBYGEMS_URL
+			download(RUBYGEMS_URL)
 		end
 	end
 	rubygems_package = File.expand_path("distro/#{RUBYGEMS_PACKAGE}")
