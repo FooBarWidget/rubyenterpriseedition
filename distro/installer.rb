@@ -205,7 +205,14 @@ private
 			sh("mkdir -p .ext/common")
 			
 			if tcmalloc_supported?
-				return sh("make EXTLIBS='-Wl,-rpath,#{@prefix}/lib -L#{@destdir}#{@prefix}/lib -ltcmalloc_minimal'")
+				makefile = File.read('Makefile')
+				if makefile !~ /\$\(PRELIBS\)/
+					makefile.sub!(/^LIBS = (.*)$/, 'LIBS = $(PRELIBS) \1')
+					File.open('Makefile', 'w') do |f|
+						f.write(makefile)
+					end
+				end
+				return sh("make PRELIBS='-Wl,-rpath,#{@prefix}/lib -L#{@destdir}#{@prefix}/lib -ltcmalloc_minimal'")
 			else
 				return sh("make")
 			end
@@ -384,7 +391,7 @@ private
 	end
 	
 	def tcmalloc_supported?
-		return @use_tcmalloc && !platform_is_64_bit? && RUBY_PLATFORM !~ /darwin/
+		return @use_tcmalloc && !platform_is_64_bit?
 	end
 	
 	def libunwind_needed?
