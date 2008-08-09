@@ -309,10 +309,9 @@ module Net
     # * IOError
     # * TimeoutError
     #
-    def SMTP.start( address, port = nil,
-                    helo = 'localhost.localdomain',
-                    user = nil, secret = nil, authtype = nil,
-                    &block) # :yield: smtp
+    def SMTP.start(address, port = nil, helo = 'localhost.localdomain',
+                   user = nil, secret = nil, authtype = nil,
+                   &block)   # :yield: smtp
       new(address, port).start(helo, user, secret, authtype, &block)
     end
 
@@ -371,8 +370,8 @@ module Net
     # * IOError
     # * TimeoutError
     #
-    def start( helo = 'localhost.localdomain',
-               user = nil, secret = nil, authtype = nil ) # :yield: smtp
+    def start(helo = 'localhost.localdomain',
+              user = nil, secret = nil, authtype = nil)   # :yield: smtp
       if block_given?
         begin
           do_start(helo, user, secret, authtype)
