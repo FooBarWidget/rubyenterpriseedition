@@ -1,5 +1,5 @@
 Package: ruby-enterprise
-Version: 1.8.6-20080624
+Version: 1.8.6-20080809
 Section: interpreters
 Priority: optional
 Architecture: i386
@@ -11,5 +11,5 @@ Maintainer: Hongli Lai <hongli@phusion.nl>
 Conflicts: 
 Replaces: 
 Provides: 
-Installed-Size: 84992
-Description: Ruby Enterprise Edition, based on Ruby 1.8.6-p111, with security backports.
+Installed-Size: 27848
+Description: Ruby Enterprise Edition, based on Ruby 1.8.6-p286, with security backports.

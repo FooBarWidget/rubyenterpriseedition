@@ -42,9 +42,11 @@ task :fakeroot do
 	puts "*** Ruby Enterprise Edition has been installed to #{fakeroot}"
 end
 
+desc "Create a Debian package. Must be run as root."
 task 'package:debian' do
 	Rake::Task['fakeroot'].invoke unless File.directory?('fakeroot')
-	sh "cp -R distro/debian fakeroot/DEBIAN" unless File.directory?('fakeroot/DEBIAN')
+	sh "rm -rf fakeroot/DEBIAN"
+	sh "cp -R distro/debian fakeroot/DEBIAN"
 	sh "chown -R root:root fakeroot"
 	sh "dpkg -b fakeroot ruby-enterprise_#{VENDOR_RUBY_VERSION}-#{REE_VERSION}-i386.deb"
 end
