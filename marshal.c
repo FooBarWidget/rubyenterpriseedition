@@ -81,9 +81,19 @@ shortlen(len, ds)
 #define TYPE_LINK	'@'
 
 static ID s_dump, s_load, s_mdump, s_mload;
-static ID s_dump_data, s_load_data, s_alloc;
+static ID s_dump_data, s_load_data, s_alloc, s_call;
 static ID s_getc, s_read, s_write, s_binmode;
 static ID id_rehash;
+
+static void
+reentrant_check(obj, sym)
+    VALUE obj;
+    ID sym;
+{
+    if (obj && RBASIC(obj)->klass) {
+        rb_raise(rb_eRuntimeError, "%s reentered", rb_id2name(sym));
+    }
+}
 
 struct dump_arg {
     VALUE obj;
@@ -470,7 +480,7 @@ w_object(obj, arg, limit)
 	return;
     }
 
-    if (ivtbl = rb_generic_ivar_table(obj)) {
+    if ((ivtbl = rb_generic_ivar_table(obj)) != 0) {
 	w_byte(TYPE_IVAR, arg);
     }
     if (obj == Qnil) {
@@ -504,9 +514,10 @@ w_object(obj, arg, limit)
 
 	st_add_direct(arg->data, obj, arg->data->num_entries);
 	if (rb_respond_to(obj, s_mdump)) {
-	    VALUE v;
+	    volatile VALUE v;
 
 	    v = rb_funcall(obj, s_mdump, 0, 0);
+	    reentrant_check(arg->str, s_mdump);
 	    w_class(TYPE_USRMARSHAL, obj, arg, Qfalse);
 	    w_object(v, arg, limit);
 	    if (ivtbl) w_ivar(0, &c_arg);
@@ -516,6 +527,7 @@ w_object(obj, arg, limit)
 	    VALUE v;
 
 	    v = rb_funcall(obj, s_dump, 1, INT2NUM(limit));
+	    reentrant_check(arg->str, s_dump);
 	    if (TYPE(v) != T_STRING) {
 		rb_raise(rb_eTypeError, "_dump() must return string");
 	    }
@@ -663,6 +675,7 @@ w_object(obj, arg, limit)
 			     rb_obj_classname(obj));
 		}
 		v = rb_funcall(obj, s_dump_data, 0);
+		reentrant_check(arg->str, s_dump_data);
 		w_class(TYPE_DATA, obj, arg, Qtrue);
 		w_object(v, arg, limit);
 	    }
@@ -695,11 +708,13 @@ static VALUE
 dump_ensure(arg)
     struct dump_arg *arg;
 {
+    if (RBASIC(arg->str)->klass) return; /* ignore reentrant */
     st_free_table(arg->symbols);
     st_free_table(arg->data);
     if (arg->taint) {
 	OBJ_TAINT(arg->str);
     }
+
     return 0;
 }
 
@@ -773,20 +788,21 @@ marshal_dump(argc, argv)
 	else port = a1;
     }
     arg.dest = 0;
+    arg.str = rb_str_buf_new(0);
+    RBASIC(arg.str)->klass = 0;
     if (!NIL_P(port)) {
 	if (!rb_respond_to(port, s_write)) {
 	  type_error:
 	    rb_raise(rb_eTypeError, "instance of IO needed");
 	}
-	arg.str = rb_str_buf_new(0);
 	arg.dest = port;
 	if (rb_respond_to(port, s_binmode)) {
 	    rb_funcall2(port, s_binmode, 0, 0);
+	    reentrant_check(arg.str, s_dump_data);
 	}
     }
     else {
-	port = rb_str_buf_new(0);
-	arg.str = port;
+	port = arg.str;
     }
 
     arg.symbols = st_init_numtable();
@@ -801,6 +817,7 @@ marshal_dump(argc, argv)
     w_byte(MARSHAL_MINOR, &arg);
 
     rb_ensure(dump, (VALUE)&c_arg, dump_ensure, (VALUE)&arg);
+    RBASIC(arg.str)->klass = rb_cString;
 
     return port;
 }
@@ -833,6 +850,7 @@ r_byte(arg)
     else {
 	VALUE src = arg->src;
 	VALUE v = rb_funcall2(src, s_getc, 0, 0);
+	reentrant_check(arg->data, s_getc);
 	if (NIL_P(v)) rb_eof_error();
 	c = (unsigned char)FIX2INT(v);
     }
@@ -900,7 +918,7 @@ r_bytes0(len, arg)
 
     if (len == 0) return rb_str_new(0, 0);
     if (TYPE(arg->src) == T_STRING) {
-	if (RSTRING(arg->src)->len > arg->offset) {
+	if (RSTRING(arg->src)->len - arg->offset >= len) {
 	    str = rb_str_new(RSTRING(arg->src)->ptr+arg->offset, len);
 	    arg->offset += len;
 	}
@@ -913,6 +931,7 @@ r_bytes0(len, arg)
 	VALUE src = arg->src;
 	VALUE n = LONG2NUM(len);
 	str = rb_funcall2(src, s_read, 1, &n);
+	reentrant_check(arg->data, s_read);
 	if (NIL_P(str)) goto too_short;
 	StringValue(str);
 	if (RSTRING(str)->len != len) goto too_short;
@@ -1266,6 +1285,7 @@ r_object0(arg, proc, ivp, extmod)
 		*ivp = Qfalse;
 	    }
 	    v = rb_funcall(klass, s_load, 1, data);
+	    reentrant_check(arg->data, s_load);
 	    r_entry(v, arg);
 	}
         break;
@@ -1289,6 +1309,7 @@ r_object0(arg, proc, ivp, extmod)
 	    r_entry(v, arg);
 	    data = r_object(arg);
 	    rb_funcall(v, s_mload, 1, data);
+	    reentrant_check(arg->data, s_mload);
 	}
         break;
 
@@ -1315,6 +1336,7 @@ r_object0(arg, proc, ivp, extmod)
 		   warn = Qfalse;
 	       }
 	       v = rb_funcall(klass, s_alloc, 0);
+	       reentrant_check(arg->data, s_alloc);
            }
 	   else {
 	       v = rb_obj_alloc(klass);
@@ -1329,6 +1351,7 @@ r_object0(arg, proc, ivp, extmod)
                         rb_class2name(klass));
            }
            rb_funcall(v, s_load_data, 1, r_object0(arg, 0, 0, extmod));
+	   reentrant_check(arg->data, s_load_data);
        }
        break;
 
@@ -1371,7 +1394,8 @@ r_object0(arg, proc, ivp, extmod)
 	break;
     }
     if (proc) {
-	rb_funcall(proc, rb_intern("call"), 1, v);
+	rb_funcall(proc, s_call, 1, v);
+	reentrant_check(arg->data, s_call);
     }
     return v;
 }
@@ -1394,6 +1418,7 @@ static VALUE
 load_ensure(arg)
     struct load_arg *arg;
 {
+    if (RBASIC(arg->data)->klass) return; /* ignore reentrant */
     st_free_table(arg->symbols);
     return 0;
 }
@@ -1420,9 +1445,10 @@ marshal_load(argc, argv)
     struct load_arg arg;
 
     rb_scan_args(argc, argv, "11", &port, &proc);
-    if (rb_respond_to(port, rb_intern("to_str"))) {
+    v = rb_check_string_type(port);
+    if (!NIL_P(v)) {
 	arg.taint = OBJ_TAINTED(port); /* original taintedness */
-	StringValue(port);	       /* possible conversion */
+	port = v;
     }
     else if (rb_respond_to(port, s_getc) && rb_respond_to(port, s_read)) {
 	if (rb_respond_to(port, s_binmode)) {
@@ -1435,6 +1461,7 @@ marshal_load(argc, argv)
     }
     arg.src = port;
     arg.offset = 0;
+    arg.data = 0;
 
     major = r_byte(&arg);
     minor = r_byte(&arg);
@@ -1451,9 +1478,11 @@ marshal_load(argc, argv)
 
     arg.symbols = st_init_numtable();
     arg.data   = rb_hash_new();
+    RBASIC(arg.data)->klass = 0;
     if (NIL_P(proc)) arg.proc = 0;
     else             arg.proc = proc;
     v = rb_ensure(load, (VALUE)&arg, load_ensure, (VALUE)&arg);
+    RBASIC(arg.data)->klass = rb_cHash;
 
     return v;
 }
@@ -1503,6 +1532,7 @@ Init_marshal()
     s_dump_data = rb_intern("_dump_data");
     s_load_data = rb_intern("_load_data");
     s_alloc = rb_intern("_alloc");
+    s_call = rb_intern("call");
     s_getc = rb_intern("getc");
     s_read = rb_intern("read");
     s_write = rb_intern("write");
