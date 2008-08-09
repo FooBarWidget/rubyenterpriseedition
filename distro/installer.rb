@@ -253,7 +253,9 @@ private
 		end
 		
 		# Add the system's RubyGems path to our gem search path.
-		if system_gem_path
+		# Except if we're on OS X - on OS X, the system Ruby's native
+		# extensions are known to cause problems.
+		if system_gem_path && RUBY_PLATFORM !~ /darwin/
 			File.open("#{site_libdir}/rubygems.rb", "a") do |f|
 				f.write("\n")
 				f.write("Gem.path << '#{system_gem_path}'\n")
