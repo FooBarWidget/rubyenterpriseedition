@@ -320,7 +320,7 @@ private
 			if !Dir["sqlite3-ruby*"].empty?
 				# The sqlite3-ruby gem installs files with wrong permissions.
 				# We fix this.
-				sh "chmod -R g+r,o+r sqlite3-ruby*"
+				sh "chmod -R g+r,o+r,o-w sqlite3-ruby*"
 			end
 		end
 	end
