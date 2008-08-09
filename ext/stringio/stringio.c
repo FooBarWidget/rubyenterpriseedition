@@ -947,7 +947,7 @@ strio_readline(argc, argv, self)
     VALUE *argv;
     VALUE self;
 {
-    VALUE line = strio_getline(argc, argv, readable(StringIO(self)));
+    VALUE line = strio_gets(argc, argv, self);
     if (NIL_P(line)) rb_eof_error();
     return line;
 }
