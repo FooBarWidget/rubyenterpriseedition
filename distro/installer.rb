@@ -314,7 +314,7 @@ private
 		
 		# Fix the shebang lines of scripts in 'bin' folder.
 		Dir.chdir("#{@destdir}#{@prefix}/bin") do
-			sh "sed -i 's|^#!.*$|#!#{@prefix}/bin/ruby|' *"
+			sh "sed -i 's|^#!.*ruby.*$|#!#{@prefix}/bin/ruby|' *"
 		end
 		Dir.chdir("#{@destdir}#{@prefix}/lib/ruby/gems/1.8/gems") do
 			if !Dir["sqlite3-ruby*"].empty?
