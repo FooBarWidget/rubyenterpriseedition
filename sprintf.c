@@ -18,6 +18,8 @@
 #include <math.h>
 
 #define BIT_DIGITS(N)   (((N)*146)/485 + 1)  /* log2(10) =~ 146/485 */
+#define BITSPERDIG (SIZEOF_BDIGITS*CHAR_BIT)
+#define EXTENDSIGN(n, l) (((~0 << (n)) >> (((n)*(l)) % BITSPERDIG)) & ~(~0 << (n)))
 
 static void fmt_setup _((char*,int,int,int,int));
 
@@ -36,7 +38,7 @@ remove_sign_bits(str, base)
 	}
     }
     else if (base == 8) {
-	if (*t == '3') t++;
+	*t |= EXTENDSIGN(3, strlen(t));
 	while (*t == '7') {
 	    t++;
 	}
@@ -478,7 +480,7 @@ rb_str_format(argc, argv, fmt)
 		long v = 0;
 		int base, bignum = 0;
 		int len, pos;
-		VALUE tmp;
+		volatile VALUE tmp;
                 volatile VALUE tmp1;
 
 		switch (*p) {
@@ -735,6 +737,8 @@ rb_str_format(argc, argv, fmt)
 		    }
 		    need = strlen(expr);
 		    if ((!isnan(fval) && fval < 0.0) || (flags & FPLUS))
+			need++;
+		    else if (flags & FSPACE)
 			need++;
 		    if ((flags & FWIDTH) && need < width)
 			need = width;
