@@ -269,7 +269,7 @@ private
 		
 		mysql_config = PlatformInfo.find_command('mysql_config')
 		if mysql_config
-			mysql_gem = "mysql -- --with--mysql-config='#{mysql_config}'"
+			mysql_gem = "mysql -- --with-mysql-config='#{mysql_config}'"
 		else
 			mysql_gem = "mysql"
 		end
@@ -305,8 +305,10 @@ private
 			puts
 			color_puts "These gems are not required, i.e. Ruby Enterprise Edition will work fine without them. But most people use Ruby Enterprise Edition in combination with Phusion Passenger and Ruby on Rails, which do require one or more of the aforementioned gems, so you may want to install them later."
 			puts
-			color_puts "To install the aforementioned gems, please use the following command:"
-			color_puts "<yellow>#{gem} install #{failed_gems.join(' ')}</yellow>"
+			color_puts "To install the aforementioned gems, please use the following commands:"
+			failed_gems.each do |gem_name|
+				color_puts "  <yellow>* #{gem} install #{gem_name}</yellow>"
+			end
 			puts
 			color_puts "<b>Press ENTER to show the next screen.</b>"
 			wait
