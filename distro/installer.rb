@@ -317,9 +317,7 @@ private
 		end
 		
 		# Fix the shebang lines of scripts in 'bin' folder.
-		Dir.chdir("#{@destdir}#{@prefix}/bin") do
-			sh "sed -i 's|^#!.*ruby.*$|#!#{@prefix}/bin/ruby|' *"
-		end
+		fix_shebang_lines("#{@destdir}#{@prefix}/bin", "#{@prefix}/bin/ruby")
 		Dir.chdir("#{@destdir}#{@prefix}/lib/ruby/gems/1.8/gems") do
 			if !Dir["sqlite3-ruby*"].empty?
 				# The sqlite3-ruby gem installs files with wrong permissions.
@@ -476,6 +474,37 @@ private
 						"as <b>root</b>."
 				end
 				return false
+			end
+		end
+	end
+	
+	# Fix the shebang lines of Ruby scripts.
+	def fix_shebang_lines(dir, new_shebang_line)
+		Dir.foreach(dir) do |basename|
+			next if basename =~ /^\./
+			filename = File.join(dir, basename)
+			begin
+				next if !File.executable?(filename)
+				rest = nil
+				File.open(filename, 'rb') do |f|
+					shebang = f.readline
+					if shebang =~ /ruby/
+						puts "Updating #{filename}..."
+						rest = f.read
+					end
+				end
+				if rest
+					tempfile = "#{filename}.tmp.#{Process.pid}"
+					File.open(tempfile, 'w') do |f|
+						f.write("#!#{new_shebang_line}\n")
+						f.write(rest)
+					end
+					File.chmod(File.stat(filename).mode, tempfile)
+					File.rename(tempfile, filename)
+					rest.replace("")
+				end
+			rescue SystemCallError, IOError => e
+				STDERR.puts "*** ERROR: #{e}"
 			end
 		end
 	end
