@@ -225,7 +225,13 @@ private
 	end
 	
 	def install_ruby
-		return install_autoconf_package('source', 'Ruby Enterprise Edition')
+		if install_autoconf_package('source', 'Ruby Enterprise Edition')
+			# Some installed files may have wrong permissions
+			# (not world-readable). So we fix this.
+			sh("chmod -R g+r,o+r,o-w #{@destdir}#{@prefix}/lib/ruby")
+		else
+			return false
+		end
 	end
 	
 	def install_rubygems
@@ -320,8 +326,8 @@ private
 		fix_shebang_lines("#{@destdir}#{@prefix}/bin", "#{@prefix}/bin/ruby")
 		Dir.chdir("#{@destdir}#{@prefix}/lib/ruby/gems/1.8/gems") do
 			if !Dir["sqlite3-ruby*"].empty?
-				# The sqlite3-ruby gem installs files with wrong permissions.
-				# We fix this.
+				# The sqlite3-ruby gem installs files with wrong
+				# permissions. We fix this.
 				sh "chmod -R g+r,o+r,o-w sqlite3-ruby*"
 			end
 		end
