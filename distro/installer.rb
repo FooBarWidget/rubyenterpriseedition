@@ -49,7 +49,8 @@ class Installer
 		  :configure_ruby,
 		  :compile_ruby,
 		  :install_ruby,
-		  :install_rubygems
+		  :install_rubygems,
+		  :install_iconv
 		]
 		steps.each do |step|
 			if !self.send(step)
@@ -240,7 +241,9 @@ private
 		if PlatformInfo.find_command("ruby")
 			system_gem_path = `ruby -rubygems -e 'puts Gem.path.first'`.strip
 		end
-	
+		
+		# We might be installing into a fakeroot, so add the fakeroot's library
+		# search paths to RUBYLIB so that gem installation will work.
 		basedir = "#{@destdir}#{@prefix}/lib/ruby"
 		libdir = "#{basedir}/1.8"
 		archname = File.basename(File.dirname(Dir["#{libdir}/*/thread.#{PlatformInfo::RUBYLIBEXT}"].first))
@@ -265,6 +268,20 @@ private
 			File.open("#{site_libdir}/rubygems.rb", "a") do |f|
 				f.write("\n")
 				f.write("Gem.path << '#{system_gem_path}'\n")
+			end
+		end
+		return true
+	end
+	
+	def install_iconv
+		# On some systems, most notably FreeBSD, the iconv extension isn't
+		# correctly installed. So here we do it manually.
+		Dir.chdir('source/ext/iconv') do
+			if !sh("#{@destdir}#{@prefix}/bin/ruby", "extconf.rb") ||
+			   !sh("make") ||
+			   !sh("make install DESTDIR='#{@destdir}'")
+				puts "*** Cannot install the iconv extension"
+				return false
 			end
 		end
 		return true
