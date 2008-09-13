@@ -11,5 +11,11 @@ else
 	#echo "Using 'runtime/$platform/ruby'"
 	RUBYOPT=""
 	export RUBYOPT
-	exec "runtime/$platform/ruby" installer.rb "$@"
+	if "runtime/$platform/ruby" -e '' 2>/dev/null; then
+		exec "runtime/$platform/ruby" installer.rb "$@"
+	else
+		echo "*** ERROR: Ruby is not installed ***" >&2
+		echo "The Ruby Enterprise Edition installer is written in Ruby. This source tarball bundles precompiled versions of Ruby for many platforms for the purpose of running this installer, but unfortunately we did not include a precompiled Ruby binary for the current platform. So please install Ruby manually, then run this installer again." >&2
+		exit 10
+	fi
 fi
