@@ -277,7 +277,11 @@ private
 		# On some systems, most notably FreeBSD, the iconv extension isn't
 		# correctly installed. So here we do it manually.
 		Dir.chdir('source/ext/iconv') do
+			# 'make clean' must be run, because sometimes 'make'
+			# thinks iconv.so is already compiled even though it
+			# isn't.
 			if !sh("#{@destdir}#{@prefix}/bin/ruby", "extconf.rb") ||
+			   !sh("make clean") ||
 			   !sh("make") ||
 			   !sh("make install DESTDIR='#{@destdir}'")
 				puts "*** Cannot install the iconv extension"
