@@ -9,7 +9,7 @@ class Installer
 	PASSENGER_WEBSITE = "http://www.modrails.com"
 	EMM_RUBY_WEBSITE = "http://www.rubyenterpriseedition.com"
 	REQUIRED_DEPENDENCIES = [
-		Dependencies::GCC,
+		Dependencies::CC,
 		Dependencies::Zlib_Dev,
 		Dependencies::OpenSSL_Dev
 	]
@@ -432,7 +432,10 @@ private
 	end
 	
 	def tcmalloc_supported?
-		return @use_tcmalloc && !platform_is_64_bit? && RUBY_PLATFORM !~ /darwin/
+		return @use_tcmalloc &&
+		       !platform_is_64_bit? &&
+		       RUBY_PLATFORM !~ /darwin/ &&
+		       RUBY_PLATFORM !~ /solaris/
 	end
 	
 	def libunwind_needed?
@@ -454,11 +457,15 @@ private
 		color_puts "<banner>Compiling and optimizing #{name}</banner>"
 		color_puts "In the mean time, feel free to grab a cup of coffee.\n\n"
 		Dir.chdir(dir) do
-			# If nothing has been compiled yet, then update the timestamps of the files.
+			# If nothing has been compiled yet, then set the timestamps of the files
+			# to some time in the past. I think the "/" directory's timestamp is
+			# guaranteed to be in the past.
 			# This prevents 'configure' and 'make' from thinking that the 'configure'
-			# script must be regenerated.
+			# script must be regenerated, for computers that have the clock wrongly
+			# configured or computers that are in a different time zone than the
+			# computer the REE tarball was created on.
 			if Dir["*.o"].empty?
-				system("touch *")
+				system("touch -r / *")
 			end
 			
 			if @prefix_changed || !File.exist?("Makefile")

@@ -199,6 +199,10 @@ private
 		end
 		# TODO: Slackware, Mandrake/Mandriva
 	end
+	
+	def self.determine_c_compiler
+		return find_command('gcc') || find_command('cc')
+	end
 
 public
 	# Check whether the specified command is in $PATH, and return its
@@ -216,6 +220,7 @@ public
 		return nil
 	end
 	
+	CC = determine_c_compiler
 	LIBEXT = determine_libext
 	RUBYLIBEXT = determine_ruby_libext
 
