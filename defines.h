@@ -51,6 +51,19 @@ void *xcalloc _((long,long));
 void *xrealloc _((void*,long));
 void xfree _((void*));
 
+#if defined(__APPLE__) && !defined(__x86_64)
+    #define USING_SYSTEM_ALLOCATOR_LIBRARY
+#endif
+
+/* See system_allocator.c for documentation. */
+#ifdef USING_SYSTEM_ALLOCATOR_LIBRARY
+    void *system_malloc(long size);
+    void system_free(void *ptr);
+#else
+    #define system_malloc(size) malloc(size)
+    #define system_free(ptr) free(ptr)
+#endif
+
 #if SIZEOF_LONG_LONG > 0
 # define LONG_LONG long long
 #elif SIZEOF___INT64 > 0

@@ -47,6 +47,7 @@ class Installer
 		end
 		steps += [
 		  :configure_ruby,
+		  :compile_system_allocator,
 		  :compile_ruby,
 		  :install_ruby,
 		  :install_rubygems,
@@ -163,6 +164,7 @@ private
 		ENV['C_INCLUDE_PATH'] = "#{@destdir}#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['C_INCLUDE_PATH']}"
 		ENV['CPLUS_INCLUDE_PATH'] = "#{@destdir}#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['CPLUS_INCLUDE_PATH']}"
 		ENV['LD_LIBRARY_PATH'] = "#{@destdir}#{@prefix}/lib:#{ENV['LD_LIBRARY_PATH']}"
+		ENV['DYLD_LIBRARY_PATH'] = "#{@destdir}#{@prefix}/lib:#{ENV['DYLD_LIBRARY_PATH']}"
 	end
 	
 	def configure_libunwind
@@ -205,6 +207,23 @@ private
 		return configure_autoconf_package('source', 'Ruby Enterprise Edition')
 	end
 	
+	def compile_system_allocator
+		if tcmalloc_supported? &&
+		   platform_uses_two_level_namespace_for_dynamic_libraries?
+			Dir.chdir("source") do
+				@using_system_allocator_library = true
+				# On platforms that use a two-level symbol namespace for
+				# dynamic libraries (most notably MacOS X), integrating
+				# tcmalloc requires a special library. See system_allocator.c
+				# for more information.
+				ENV['DYLD_LIBRARY_PATH'] = "#{ROOT}/source:#{ENV['DYLD_LIBRARY_PATH']}"
+				return sh("#{PlatformInfo::CC} -dynamiclib system_allocator.c -install_name @rpath/libsystem_allocator.dylib -o libsystem_allocator.dylib")
+			end
+		else
+			return true
+		end
+	end
+	
 	def compile_ruby
 		Dir.chdir("source") do
 			# No idea why, but sometimes 'make' fails unless we do this.
@@ -218,7 +237,13 @@ private
 						f.write(makefile)
 					end
 				end
-				return sh("make PRELIBS='-Wl,-rpath,#{@prefix}/lib -L#{@destdir}#{@prefix}/lib -ltcmalloc_minimal'")
+				
+				prelibs = "-Wl,-rpath,#{@prefix}/lib -L#{@destdir}#{@prefix}/lib -ltcmalloc_minimal"
+				if platform_uses_two_level_namespace_for_dynamic_libraries?
+					prelibs << " -lsystem_allocator"
+				end
+				
+				return sh("make PRELIBS='#{prelibs}'")
 			else
 				return sh("make")
 			end
@@ -229,7 +254,16 @@ private
 		if install_autoconf_package('source', 'Ruby Enterprise Edition')
 			# Some installed files may have wrong permissions
 			# (not world-readable). So we fix this.
-			sh("chmod -R g+r,o+r,o-w #{@destdir}#{@prefix}/lib/ruby")
+			if sh("chmod -R g+r,o+r,o-w #{@destdir}#{@prefix}/lib/ruby")
+				if @using_system_allocator_library &&
+				   !sh("install source/libsystem_allocator.dylib #{@destdir}#{@prefix}/lib/")
+					return false
+				else
+					return true
+				end
+			else
+				return false
+			end
 		else
 			return false
 		end
@@ -434,7 +468,6 @@ private
 	def tcmalloc_supported?
 		return @use_tcmalloc &&
 		       !platform_is_64_bit? &&
-		       RUBY_PLATFORM !~ /darwin/ &&
 		       RUBY_PLATFORM !~ /solaris/
 	end
 	
@@ -445,6 +478,10 @@ private
 	def platform_is_64_bit?
 		machine = `uname -m`.strip
 		return machine == "x86_64"
+	end
+	
+	def platform_uses_two_level_namespace_for_dynamic_libraries?
+		return RUBY_PLATFORM =~ /darwin/
 	end
 	
 	def sh(*command)
