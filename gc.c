@@ -2398,9 +2398,9 @@ static VALUE
 rb_gc_copy_on_write_friendly()
 {
     if (rb_mark_table_init == rb_fast_mark_table_init) {
-	return Qtrue;
-    } else {
 	return Qfalse;
+    } else {
+	return Qtrue;
     }
 }
 
