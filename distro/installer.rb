@@ -236,12 +236,6 @@ private
 	end
 	
 	def install_rubygems
-		# We want to add the system's RubyGems path to our gem search path.
-		system_gem_path = nil
-		if PlatformInfo.find_command("ruby")
-			system_gem_path = `ruby -rubygems -e 'puts Gem.path.first'`.strip
-		end
-		
 		# We might be installing into a fakeroot, so add the fakeroot's library
 		# search paths to RUBYLIB so that gem installation will work.
 		basedir = "#{@destdir}#{@prefix}/lib/ruby"
@@ -258,16 +252,6 @@ private
 			if !sh("#{@destdir}#{@prefix}/bin/ruby", "setup.rb", "--no-ri", "--no-rdoc")
 				puts "*** Cannot install RubyGems"
 				return false
-			end
-		end
-		
-		# Add the system's RubyGems path to our gem search path.
-		# Except if we're on OS X - on OS X, the system Ruby's native
-		# extensions are known to cause problems.
-		if system_gem_path && RUBY_PLATFORM !~ /darwin/
-			File.open("#{site_libdir}/rubygems.rb", "a") do |f|
-				f.write("\n")
-				f.write("Gem.path << '#{system_gem_path}'\n")
 			end
 		end
 		return true
