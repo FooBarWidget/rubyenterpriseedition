@@ -74,14 +74,13 @@ end
 module Dependencies # :nodoc: all
 	include PlatformInfo
 	
-	GCC = Dependency.new do |dep|
-		dep.name = "GNU C++ compiler"
+	CC = Dependency.new do |dep|
+		dep.name = "C compiler"
 		dep.define_checker do |result|
-			gxx = PlatformInfo.find_command('g++')
-			if gxx.nil?
+			if PlatformInfo::CC.nil?
 				result.not_found
 			else
-				result.found(gxx)
+				result.found(PlatformInfo::CC)
 			end
 		end
 		if RUBY_PLATFORM =~ /linux/
@@ -107,7 +106,7 @@ module Dependencies # :nodoc: all
 					f.write("#include <zlib.h>")
 				end
 				Dir.chdir('/tmp') do
-					if system("gcc -c r8ee-check.c >/dev/null 2>/dev/null")
+					if system("(#{PlatformInfo::CC || 'gcc'} -c r8ee-check.c) >/dev/null 2>/dev/null")
 						result.found
 					else
 						result.not_found
@@ -137,7 +136,7 @@ module Dependencies # :nodoc: all
 					f.write("#include <openssl/ssl.h>")
 				end
 				Dir.chdir('/tmp') do
-					if system("gcc -c r8ee-check.c >/dev/null 2>/dev/null")
+					if system("(#{PlatformInfo::CC || 'gcc'} -c r8ee-check.c) >/dev/null 2>/dev/null")
 						result.found
 					else
 						result.not_found

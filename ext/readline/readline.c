@@ -119,7 +119,7 @@ readline_readline(argc, argv, self)
 	result = rb_tainted_str_new2(buff);
     else
 	result = Qnil;
-    if (buff) free(buff);
+    if (buff) system_free(buff);
     return result;
 }
 
@@ -605,8 +605,8 @@ rb_remove_history(index)
     entry = remove_history(index);
     if (entry) {
         val = rb_tainted_str_new2(entry->line);
-        free(entry->line);
-        free(entry);
+        system_free(entry->line);
+        system_free(entry);
         return val;
     }
     return Qnil;
@@ -705,9 +705,9 @@ filename_completion_proc_call(self, str)
 	result = rb_ary_new();
 	for (i = 0; matches[i]; i++) {
 	    rb_ary_push(result, rb_tainted_str_new2(matches[i]));
-	    free(matches[i]);
+	    system_free(matches[i]);
 	}
-	free(matches);
+	system_free(matches);
 	if (RARRAY(result)->len >= 2)
 	    rb_ary_shift(result);
     }
@@ -732,9 +732,9 @@ username_completion_proc_call(self, str)
 	result = rb_ary_new();
 	for (i = 0; matches[i]; i++) {
 	    rb_ary_push(result, rb_tainted_str_new2(matches[i]));
-	    free(matches[i]);
+	    system_free(matches[i]);
 	}
-	free(matches);
+	system_free(matches);
 	if (RARRAY(result)->len >= 2)
 	    rb_ary_shift(result);
     }
