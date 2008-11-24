@@ -50,6 +50,7 @@ class Installer
 		  :compile_system_allocator,
 		  :compile_ruby,
 		  :install_ruby,
+		  :install_ree_specific_binaries,
 		  :install_rubygems,
 		  :install_iconv
 		]
@@ -267,6 +268,14 @@ private
 		else
 			return false
 		end
+	end
+	
+	def install_ree_specific_binaries
+		File.open("#{@destdir}#{@prefix}/bin/ree-version", 'w') do |f|
+			f.puts("#!/bin/sh")
+			f.puts("echo 'Ruby Enterprise Edition version #{@version}'")
+		end
+		system("chmod +x '#{@destdir}#{@prefix}/bin/ree-version'")
 	end
 	
 	def install_rubygems
