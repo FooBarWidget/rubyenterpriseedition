@@ -384,11 +384,16 @@ private
 	def show_finalization_screen
 		line
 		color_puts "<banner>Ruby Enterprise Edition is successfully installed!</banner>"
-		color_puts "If you're using <yellow>Phusion Passenger (#{PASSENGER_WEBSITE})</yellow>,"
-		color_puts "and you want it to use Ruby Enterprise Edition, then edit your Apache"
-		color_puts "configuration file, and change the 'PassengerRuby' option:"
+		color_puts "If want to use <yellow>Phusion Passenger (#{PASSENGER_WEBSITE})</yellow> in combination"
+		color_puts "with Ruby Enterprise Edition, then you must reinstall Phusion Passenger against"
+		color_puts "Ruby Enterprise Edition, as follows:"
 		puts
-		color_puts "  <b>PassengerRuby #{@prefix}/bin/ruby</b>"
+		color_puts "  <b>#{@prefix}/bin/gem install passenger</b>"
+		color_puts "  <b>#{@prefix}/bin/passenger-install-apache2-module</b>"
+		puts
+		color_puts "Make sure you don't forget to paste the Apache configuration directives that"
+		color_puts "the installer gives you."
+		puts
 		puts
 		color_puts "If you ever want to uninstall Ruby Enterprise Edition, simply remove this"
 		color_puts "directory:"
