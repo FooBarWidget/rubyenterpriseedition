@@ -330,7 +330,7 @@ private
 			mysql_gem = "mysql"
 		end
 		
-		gem_names = ["rails", "fastthread", "rack", mysql_gem, "sqlite3-ruby", "postgres"]
+		gem_names = ["passenger", "rails", "fastthread", "rack", mysql_gem, "sqlite3-ruby", "postgres"]
 		if @install_extra_gems
 			gem_names += ["rails --version 2.0.2", "rails --version 1.2.6",
 				"rails --version 1.1.6", "mongrel", "hpricot", "thin",
@@ -388,7 +388,6 @@ private
 		color_puts "with Ruby Enterprise Edition, then you must reinstall Phusion Passenger against"
 		color_puts "Ruby Enterprise Edition, as follows:"
 		puts
-		color_puts "  <b>#{@prefix}/bin/gem install passenger</b>"
 		color_puts "  <b>#{@prefix}/bin/passenger-install-apache2-module</b>"
 		puts
 		color_puts "Make sure you don't forget to paste the Apache configuration directives that"
