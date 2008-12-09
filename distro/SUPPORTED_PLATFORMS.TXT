@@ -45,3 +45,9 @@ Solaris/SunOS
 	   *** Error code 1
 	
 	This is not a fatal permanent error. If you encounter this, just re-run the installer, and it should work.
+
+
+
+General notes
+-------------
+When compiling tcmalloc, make sure that you run "make tcmalloc_minimal.la" instead of "make". tcmalloc_minimal (i.e. just the memory allocator) works on many platforms, but the supplied memory debugging tools do not, and tend to fail to compile on 64-bit platforms.
