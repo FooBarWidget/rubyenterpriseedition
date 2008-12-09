@@ -83,6 +83,20 @@ static void garbage_collect();
 
 NORETURN(void rb_exc_jump _((VALUE)));
 
+static unsigned long live_objects = 0;
+unsigned long rb_os_live_objects()
+{ return live_objects; }
+
+#if defined(HAVE_LONG_LONG)
+static unsigned long long allocated_objects = 0;
+unsigned long long rb_os_allocated_objects()
+{ return allocated_objects; }
+#else
+static unsigned long allocated_objects = 0;
+unsigned long rb_os_allocated_objects()
+{ return allocated_objects; }
+#endif
+
 void
 rb_memerror()
 {
@@ -99,6 +113,10 @@ rb_memerror()
     rb_thread_raised_set(th, RAISED_NOMEMORY);
     rb_exc_raise(nomem_error);
 }
+
+long gc_allocated_size = 0;
+long gc_num_allocations = 0;
+static int gc_statistics = 0;
 
 void *
 ruby_xmalloc(size)
@@ -123,6 +141,11 @@ ruby_xmalloc(size)
 	}
     }
     malloc_increase += size;
+    
+    if (gc_statistics) {
+	gc_allocated_size += size;
+	gc_num_allocations += 1;
+    }
 
     return mem;
 }
@@ -180,7 +203,6 @@ ruby_xfree(x)
 
 extern int ruby_in_compile;
 static int dont_gc;
-static int gc_statistics = 0;
 static GC_TIME_TYPE gc_time = 0;
 static int gc_collections = 0;
 static int during_gc;
@@ -414,6 +436,8 @@ rb_gc_disable_stats()
 {
     int old = gc_statistics;
     gc_statistics = Qfalse;
+    gc_allocated_size = 0;
+    gc_num_allocations = 0;
     return old;
 }
 
@@ -433,7 +457,41 @@ rb_gc_clear_stats()
 {
     gc_collections = 0;
     gc_time = 0;
+    gc_allocated_size = 0;
+    gc_num_allocations = 0;
     return Qnil; 
+}
+
+/*
+ *  call-seq:
+ *     GC.allocated_size    => Integer
+ *
+ *  Returns the size of memory (in bytes) allocated since GC statistics collection
+ *  was enabled.
+ *
+ *     GC.allocated_size    #=> 35
+ *
+ */
+VALUE
+rb_gc_allocated_size()
+{
+    return INT2NUM(gc_allocated_size);
+}
+
+/*
+ *  call-seq:
+ *     GC.num_allocations    => Integer
+ *
+ *  Returns the number of memory allocations since GC statistics collection
+ *  was enabled.
+ *
+ *     GC.num_allocations    #=> 150
+ *
+ */
+VALUE
+rb_gc_num_allocations()
+{
+    return INT2NUM(gc_num_allocations);
 }
 
 /*
@@ -742,6 +800,7 @@ rb_gc_log(self, original_str)
 }
 
 
+
 static void
 add_heap()
 {
@@ -827,6 +886,8 @@ rb_newobj()
     RANY(obj)->file = ruby_sourcefile;
     RANY(obj)->line = ruby_sourceline;
 #endif
+    live_objects++;
+    allocated_objects++;
     return obj;
 }
 
@@ -1532,6 +1593,8 @@ gc_sweep()
     int free_counts[256];
     int live_counts[256];
     int do_gc_stats = gc_statistics & verbose_gc_stats;
+    
+    live_objects = 0;
 
     for (i = 0; i < heaps_used; i++) {
         free_min += heaps[i].limit;
@@ -1617,7 +1680,7 @@ gc_sweep()
 	    }
 	    else {
 		rb_mark_table_heap_remove(heap, p);
-		live++;
+		live_objects++;
 		if (do_gc_stats) {
 		    live_counts[RANY((VALUE)p)->as.basic.flags & T_MASK]++;
 		}
@@ -1638,7 +1701,7 @@ gc_sweep()
 	}
     }
     if (malloc_increase > malloc_limit) {
-	malloc_limit += (malloc_increase - malloc_limit) * (double)live / (live + freed);
+	malloc_limit += (malloc_increase - malloc_limit) * (double)live_objects / (live_objects + freed);
 	if (malloc_limit < initial_malloc_limit) malloc_limit = initial_malloc_limit;
     }
     malloc_increase = 0;
@@ -2786,6 +2849,35 @@ rb_gc_set_copy_on_write_friendly(VALUE self, VALUE val)
     return Qnil;
 }
 
+/* call-seq:
+ *  ObjectSpace.live_objects => number
+ *
+ * Returns the count of objects currently allocated in the system. This goes
+ * down after the garbage collector runs.
+ */
+static
+VALUE os_live_objects(VALUE self)
+{ return ULONG2NUM(live_objects); }
+
+/* call-seq:
+ *  ObjectSpace.allocated_objects => number
+ *
+ * Returns the count of objects allocated since the Ruby interpreter has
+ * started.  This number can only increase. To know how many objects are
+ * currently allocated, use ObjectSpace::live_objects
+ */
+static
+VALUE os_allocated_objects(VALUE self)
+{
+#if defined(HAVE_LONG_LONG)
+    return ULL2NUM(allocated_objects);
+#else
+    return ULONG2NUM(allocated_objects);
+#endif
+}
+
+
+
 /*
  *  The <code>GC</code> module provides an interface to Ruby's mark and
  *  sweep garbage collection mechanism. Some of the underlying methods
@@ -2809,6 +2901,8 @@ Init_GC()
     rb_define_singleton_method(rb_mGC, "enable_stats", rb_gc_enable_stats, 0);
     rb_define_singleton_method(rb_mGC, "disable_stats", rb_gc_disable_stats, 0);
     rb_define_singleton_method(rb_mGC, "clear_stats", rb_gc_clear_stats, 0);
+    rb_define_singleton_method(rb_mGC, "allocated_size", rb_gc_allocated_size, 0);
+    rb_define_singleton_method(rb_mGC, "num_allocations", rb_gc_num_allocations, 0);
     rb_define_singleton_method(rb_mGC, "collections", rb_gc_collections, 0);
     rb_define_singleton_method(rb_mGC, "time", rb_gc_time, 0);
     rb_define_singleton_method(rb_mGC, "dump", rb_gc_dump, 0);
@@ -2821,6 +2915,8 @@ Init_GC()
     rb_define_module_function(rb_mObSpace, "remove_finalizer", rm_final, 1);
     rb_define_module_function(rb_mObSpace, "finalizers", finals, 0);
     rb_define_module_function(rb_mObSpace, "call_finalizer", call_final, 1);
+    rb_define_module_function(rb_mObSpace, "live_objects", os_live_objects, 0);
+    rb_define_module_function(rb_mObSpace, "allocated_objects", os_allocated_objects, 0);
 
     rb_define_module_function(rb_mObSpace, "define_finalizer", define_final, -1);
     rb_define_module_function(rb_mObSpace, "undefine_finalizer", undefine_final, 1);
