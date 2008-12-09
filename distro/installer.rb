@@ -155,8 +155,7 @@ private
 			@destdir += "/"
 		end
 		
-		ENV['C_INCLUDE_PATH'] = "#{@destdir}#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['C_INCLUDE_PATH']}"
-		ENV['CPLUS_INCLUDE_PATH'] = "#{@destdir}#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['CPLUS_INCLUDE_PATH']}"
+		ENV['CPATH'] = "#{@destdir}#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['CPATH']}"
 		ENV['LD_LIBRARY_PATH'] = "#{@destdir}#{@prefix}/lib:#{ENV['LD_LIBRARY_PATH']}"
 		ENV['DYLD_LIBRARY_PATH'] = "#{@destdir}#{@prefix}/lib:#{ENV['DYLD_LIBRARY_PATH']}"
 	end
