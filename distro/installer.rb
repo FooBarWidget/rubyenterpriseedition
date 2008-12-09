@@ -32,13 +32,6 @@ class Installer
 		
 		steps = []
 		if tcmalloc_supported?
-			if libunwind_needed?
-				steps += [
-				  :configure_libunwind,
-				  :compile_libunwind,
-				  :install_libunwind
-				]
-			end
 			steps += [
 			  :configure_tcmalloc,
 			  :compile_tcmalloc,
@@ -166,22 +159,6 @@ private
 		ENV['CPLUS_INCLUDE_PATH'] = "#{@destdir}#{@prefix}/include:/usr/include:/usr/local/include:#{ENV['CPLUS_INCLUDE_PATH']}"
 		ENV['LD_LIBRARY_PATH'] = "#{@destdir}#{@prefix}/lib:#{ENV['LD_LIBRARY_PATH']}"
 		ENV['DYLD_LIBRARY_PATH'] = "#{@destdir}#{@prefix}/lib:#{ENV['DYLD_LIBRARY_PATH']}"
-	end
-	
-	def configure_libunwind
-		return configure_autoconf_package('source/vendor/libunwind-0.98.6',
-			'libunwind')
-	end
-	
-	def compile_libunwind
-		Dir.chdir('source/vendor/libunwind-0.98.6') do
-			return sh("make")
-		end
-	end
-	
-	def install_libunwind
-		return install_autoconf_package('source/vendor/libunwind-0.98.6',
-		  'libunwind')
 	end
 	
 	def configure_tcmalloc
@@ -465,15 +442,6 @@ private
 	def tcmalloc_supported?
 		return @use_tcmalloc &&
 		       RUBY_PLATFORM !~ /solaris/
-	end
-	
-	def libunwind_needed?
-		return false
-	end
-	
-	def platform_is_64_bit?
-		machine = `uname -m`.strip
-		return machine == "x86_64"
 	end
 	
 	def platform_uses_two_level_namespace_for_dynamic_libraries?

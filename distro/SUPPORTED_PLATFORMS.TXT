@@ -8,13 +8,9 @@ Ubuntu Linux 8.04 (x86)
 	
 Ubuntu Linux 8.10 (x86_64)
 	Supported                : Yes
-	tcmalloc works           : No
-	REE is linked to tcmalloc: No
+	tcmalloc works           : Yes
+	REE is linked to tcmalloc: Yes
 	uname -a                 : Linux ubuntu 2.6.27-7-server #1 SMP Fri Oct 24 07:20:47 UTC 2008 x86_64 GNU/Linux
-	
-	tcmalloc can't generate stack traces without libunwind, but libunwind
-	bails out with a compilation error. So REE works on this platform, but
-	without tcmalloc.
 
 MacOS X 10.5.5 server (x86)
 	Supported                : Yes
