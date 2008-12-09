@@ -19,13 +19,10 @@ Ubuntu Linux 8.10 (x86_64)
 MacOS X 10.5.5 server (x86)
 	Supported                : Yes
 	tcmalloc works           : Yes
-	REE is linked to tcmalloc: No
+	REE is linked to tcmalloc: Yes
 	uname -a                 : Darwin localhost 9.5.0 Darwin Kernel Version 9.5.0: Wed Sep  3 11:29:43 PDT 2008; root:xnu-1228.7.58~1/RELEASE_I386 i386
 	
-	Because of OS X's two-level namespace scheme for symbols, Ruby ends up
-	using tcmalloc to free memory that's allocated by the system's allocator.
-	tcmalloc cannot made to work without further modifications to Ruby, and
-	so is disabled for now.
+	We had to patch Ruby to make it work with tcmalloc. See system_allocator.c.
 	
 FreeBSD 5.0 (x86)
 	Supported                : Yes
@@ -33,15 +30,11 @@ FreeBSD 5.0 (x86)
 	REE is linked to tcmalloc: Yes
 	uname -a                 : FreeBSD localhost 6.1-RELEASE FreeBSD 6.1-RELEASE #0: Sun May  7 04:42:56 UTC 2006     root@opus.cse.buffalo.edu:/usr/obj/usr/src/sys/SMP  i386
 
-FreeBSD 7.0 (x86_64)
+FreeBSD 7.0 (amd64)
 	Supported                : Yes
-	tcmalloc works           : No
-	REE is linked to tcmalloc: No
+	tcmalloc works           : Yes
+	REE is linked to tcmalloc: Yes
 	uname -a                 : FreeBSD localhost 7.0-RELEASE FreeBSD 7.0-RELEASE #0: Sun Feb 24 10:35:36 UTC 2008     root@driscoll.cse.buffalo.edu:/usr/obj/usr/src/sys/GENERIC  amd64
-	
-	tcmalloc can't generate stack traces without libunwind, but libunwind
-	bails out with a compilation error. So REE works on this platform, but
-	without tcmalloc.
 
 Solaris/SunOS
 	Supported                : Yes

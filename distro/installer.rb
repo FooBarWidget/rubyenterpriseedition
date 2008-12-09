@@ -464,7 +464,6 @@ private
 	
 	def tcmalloc_supported?
 		return @use_tcmalloc &&
-		       !platform_is_64_bit? &&
 		       RUBY_PLATFORM !~ /solaris/
 	end
 	
