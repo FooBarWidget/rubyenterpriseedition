@@ -440,7 +440,8 @@ private
 	
 	def tcmalloc_supported?
 		return @use_tcmalloc &&
-		       RUBY_PLATFORM !~ /solaris/
+		       RUBY_PLATFORM !~ /solaris/ &&
+		       RUBY_PLATFORM !~ /openbsd/
 	end
 	
 	def platform_uses_two_level_namespace_for_dynamic_libraries?

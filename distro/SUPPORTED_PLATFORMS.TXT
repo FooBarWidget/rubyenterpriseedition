@@ -46,6 +46,12 @@ Solaris/SunOS
 	
 	This is not a fatal permanent error. If you encounter this, just re-run the installer, and it should work.
 
+OpenBSD 4.3 (x86)
+	Supported:               : ?
+	tcmalloc works           : No
+	REE is linked to tcmalloc: No
+	uname -a                 : OpenBSD openbsd.localdomain 4.3 GENERIC#698 i386
+
 
 
 General notes
