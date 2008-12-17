@@ -306,7 +306,7 @@ private
 			mysql_gem = "mysql"
 		end
 		
-		gem_names = ["passenger", "rails", "fastthread", "rack", mysql_gem, "sqlite3-ruby", "postgres"]
+		gem_names = ["passenger", "rake", "rails", "fastthread", "rack", mysql_gem, "sqlite3-ruby", "postgres"]
 		if @install_extra_gems
 			gem_names += ["rails --version 2.0.2", "rails --version 1.2.6",
 				"rails --version 1.1.6", "mongrel", "hpricot", "thin",
