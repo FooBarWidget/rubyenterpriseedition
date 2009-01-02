@@ -176,7 +176,12 @@ private
 		return install_autoconf_package('source/vendor/google-perftools-0.99.2',
 		  'the memory allocator for Ruby Enterprise Edition') do
 			sh("mkdir", "-p", "#{@destdir}#{@prefix}/lib") &&
-			sh("cp .libs/libtcmalloc_minimal*.#{PlatformInfo::LIBEXT}* '#{@destdir}#{@prefix}/lib/'")
+			# Remove existing .so files so that the copy operation doesn't
+			# overwrite the existing files in-place. Overwriting shared
+			# libraries in-place can cause existing processes that use
+			# those libraries to crash.
+			sh("rm -f '#{@destdir}#{@prefix}/lib'/libtcmalloc_minimal*.#{PlatformInfo::LIBEXT}*") &&
+			sh("cp -f .libs/libtcmalloc_minimal*.#{PlatformInfo::LIBEXT}* '#{@destdir}#{@prefix}/lib/'")
 		end
 	end
 	
