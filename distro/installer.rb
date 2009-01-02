@@ -325,7 +325,7 @@ private
 		if sh("#{gem} sources --update")
 			gem_names.each do |gem_name|
 				color_puts "\n<b>Installing #{gem_name}...</b>"
-				if !sh("#{gem} install --no-rdoc --no-ri --no-update-sources --backtrace #{gem_name}")
+				if !sh("#{gem} install -r --no-rdoc --no-ri --no-update-sources --backtrace #{gem_name}")
 					failed_gems << gem_name
 				end
 			end
