@@ -11,7 +11,8 @@ class Installer
 	REQUIRED_DEPENDENCIES = [
 		Dependencies::CC,
 		Dependencies::Zlib_Dev,
-		Dependencies::OpenSSL_Dev
+		Dependencies::OpenSSL_Dev,
+		Dependencies::Readline_Dev
 	]
 	
 	def start(options = {})

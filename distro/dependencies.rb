@@ -157,6 +157,36 @@ module Dependencies # :nodoc: all
 		end
 		dep.website = "http://www.openssl.org/"
 	end
+	
+	Readline_Dev = Dependency.new do |dep|
+		dep.name = "GNU Readline development headers"
+		dep.define_checker do |result|
+			begin
+				File.open('/tmp/r8ee-check.c', 'w') do |f|
+					f.write("#include <readline/readline.h>")
+				end
+				Dir.chdir('/tmp') do
+					if system("(#{PlatformInfo::CC || 'gcc'} -c r8ee-check.c) >/dev/null 2>/dev/null")
+						result.found
+					else
+						result.not_found
+					end
+				end
+			ensure
+				File.unlink('/tmp/r8ee-check.c') rescue nil
+				File.unlink('/tmp/r8ee-check.o') rescue nil
+			end
+		end
+		if RUBY_PLATFORM =~ /linux/
+			case LINUX_DISTRO
+			when :ubuntu, :debian
+				dep.install_command = "apt-get install libreadline5-dev"
+			when :rhel, :fedora, :centos
+				dep.install_command = "yum install readline-devel"
+			end
+		end
+		dep.website = "http://cnswww.cns.cwru.edu/php/chet/readline/rltop.html"
+	end
 end
 
 end # module RubyEnterpriseEdition
