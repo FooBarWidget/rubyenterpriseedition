@@ -291,7 +291,9 @@ private
 			if !sh("#{@destdir}#{@prefix}/bin/ruby", "extconf.rb") ||
 			   !sh("make clean") ||
 			   !sh("make") ||
-			   !sh("make install DESTDIR='#{@destdir}'")
+			   # For some reason DESTDIR is not necessary here;
+			   # not sure why.
+			   !sh("make install")
 				puts "*** Cannot install the iconv extension"
 				return false
 			end
