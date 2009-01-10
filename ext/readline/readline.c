@@ -183,10 +183,10 @@ readline_attempted_completion_function(text, start, end)
     matches = RARRAY(ary)->len;
     if (matches == 0)
 	return NULL;
-    result = ALLOC_N(char *, matches + 2);
+    result = system_malloc(sizeof(char *) * matches + 2);
     for (i = 0; i < matches; i++) {
 	temp = rb_obj_as_string(RARRAY(ary)->ptr[i]);
-	result[i + 1] = ALLOC_N(char, RSTRING(temp)->len + 1);
+	result[i + 1] = system_malloc(sizeof(char) * (RSTRING(temp)->len + 1));
 	strcpy(result[i + 1], RSTRING(temp)->ptr);
     }
     result[matches + 1] = NULL;
@@ -218,7 +218,7 @@ readline_attempted_completion_function(text, start, end)
 	    if (low > si) low = si;
 	    i++;
 	}
-	result[0] = ALLOC_N(char, low + 1);
+	result[0] = system_malloc(sizeof(char) * (low + 1));
 	strncpy(result[0], result[1], low);
 	result[0][low] = '\0';
     }
@@ -605,7 +605,7 @@ rb_remove_history(index)
     entry = remove_history(index);
     if (entry) {
         val = rb_tainted_str_new2(entry->line);
-        system_free(entry->line);
+        system_free((void *) entry->line);
         system_free(entry);
         return val;
     }
