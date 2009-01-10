@@ -1,0 +1,419 @@
+= Ruby Enterprise Edition Features Guide
+
+== Overview of Ruby Enterprise Edition
+Ruby Enterprise Edition (REE) is a server-oriented distribution of the official Ruby interpreter, and includes various additional enhancements:
+
+- A copy-on-write friendly garbage collector. Phusion Passenger uses this, in combination with a technique called preforking, to reduce Ruby on Rails applications' memory usage by 33% on average.
+- An improved memory allocator called tcmalloc, which improves performance quite a bit.
+- The ability to tweak garbage collector settings for maximum server performance.
+- The ability to inspect the garbage collector's state and the object heap state, for debugging purposes.
+- The ability to obtain backtraces for all running threads, making it easier for one to debug multithreaded applications.
+
+Some of these features are gathered from third party Ruby patches:
+RailsBench, RubyProf, caller_for_all_threads.
+
+
+=== Installation
+To install REE, download either the source tarball or the Debian package
+from the REE website. The source tarball contains a cross-platform installer.
+Installation instructions are available on the download page.
+
+Note that this installer is written in Ruby, and thus requires a Ruby
+interpreter to run. Because not all systems come with a Ruby interpreter by
+default, the source tarball also contains a number of precompiled Ruby
+interpreters for various platforms, with the purpose of running the installer.
+The `installer` script will automatically use a precompiled Ruby binary for the
+current platform, if available. Precompiled Ruby interpreters for the following
+platforms are included:
+
+- x86 Linux
+- x86_64 Linux
+- x86 FreeBSD 6
+- Solaris
+
+MacOS X and most FreeBSD systems already come with a Ruby interpreter by default.
+
+So if you notice that the installer fails to start, please install Ruby first,
+then re-run the installer.
+
+WARNING: It is not recommended to install REE into '/usr' because it can
+overwrite your existing Ruby installation in a way that the system doesn't
+expect. You should install REE into an isolated place such as '/opt'.
+
+==== Installation options
+
+===== Disabling tcmalloc
+If you experience problems with the tcmalloc memory allocator, then you can
+install REE without tcmalloc by passing `--no-tcmalloc` to the installer.
+
+===== Non-interactive installation
+You can installer REE non-interactively either by using the Debian package,
+or by passing `--auto=DIRECTORY` to the REE installer. The latter will
+instruct the installer to non-interactively install REE into the specified
+target directory.
+
+=== How REE installs itself into the system
+By default, REE installs itself into a directory in '/opt'. If you already had a
+Ruby interpreter installed (typically in '/usr'; let's call this 'the system Ruby
+interpreter'), then REE will have no effect on it: REE lives in isolation and in
+parallel to the system Ruby interpreter. This also means that:
+
+- If you have any software which depends on the system Ruby interpreter, then
+  that software will not break. It will continue to work like before.
+- REE has its own set of Ruby libraries, and its own set of gems and its own
+  set of commands. If you install a new gem using the system Ruby interpreter,
+  then that gem will not show up in REE's gem list, and vice versa.
+- When running Ruby programs, the system Ruby interpreter will be used unless
+  you explicitly configures the system to use REE by default.
+
+[NOTE]
+.Why doesn't REE use the system Ruby interpreter's gems?
+REE does not use the system Ruby interpreter's gems because it can cause
+problems with native extensions, e.g. RMagick, Mongrel, Hpricot, etc. A native
+extension compiled for one Ruby installation might crash when used in a
+different Ruby installation. This is why you must reinstall your gems in
+REE.
+
+=== Using REE
+Normally one would run a Ruby program by invoking the Ruby interpreter with a
+source file as its first argument:
+
+--------------------------
+$ ruby some_program.rb
+--------------------------
+
+To run the same program in REE, invoke the equivalent command in REE's
+'bin' folder:
+
+--------------------------------------------------------
+$ /opt/ruby-enterprise-X.X.X/bin/ruby some_program.rb
+--------------------------------------------------------
+
+The same applies to other Ruby commands such as 'gem', 'irb' and
+'rake'. For example, if you want to install Ruby on Rails for REE, invoke:
+
+--------------------------------------------------------
+$ /opt/ruby-enterprise-X.X.X/bin/gem install rails
+--------------------------------------------------------
+
+=== Using REE with Phusion Passenger
+To use REE in combination with Phusion Passenger, you must run the Passenger
+Apache 2 module installer that's associated with REE. The REE installer installs
+the Passenger gem by default, so you just have to run the Passenger Apache 2
+module installer:
+
+-------------------------------------------------
+/opt/ruby-enterprise-X.X.X/bin/passenger-install-apache2-module
+-------------------------------------------------
+
+Then follow the instructions that the installer gives you.
+
+=== Configuring REE as the default Ruby interpreter
+It is possible to configure REE as the default Ruby interpreter, so that when
+you type 'ruby', 'gem', 'irb', 'rake' or other Ruby commands, REE's version is
+invoked instead of the system Ruby's version.
+
+To do this, you must add REE's 'bin' directory to the beginning of the `PATH`
+environment variable. This environment variable specifies the command shell's
+command search path. For example, you can do this on the command-line:
+
+-------------------------------------
+$ ruby some_program.rb    # <--- some_program.rb is being run
+                          #      in the system Ruby interpreter.
+
+$ export PATH=/opt/ruby-enterprise-X.X.X/bin:$PATH
+$ ruby some_program.rb    # <--- some_program.rb will now be run in REE!
+-------------------------------------
+
+Invoking `export PATH=...` on the command-line has no permanent effect: its
+effects disappear as soon as you exit the shell. To make the effect permanent,
+add an entry to the file `/etc/environment` instead. On Ubuntu Linux,
+`/etc/environment` looks like this:
+
+-------------------------------------
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games"
+LANG="en_US.UTF-8"
+LANGUAGE="en_US:en"
+-------------------------------------
+
+Add REE's 'bin' directory to the PATH environment variable, like this:
+
+-------------------------------------
+PATH="/opt/ruby-enterprise-x.x.x/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games"
+LANG="en_US.UTF-8"
+LANGUAGE="en_US:en"
+-------------------------------------
+
+=== Upgrading
+To upgrade REE through the Debian package, just install the Debian package.
+
+To upgrade REE through the source tarball, run the installer in the source
+tarball and specify the same destination prefix directory that REE is currently
+installed in. For example, if REE is currently installed in
+'/opt/ruby-enterprise-20081215', then specify '/opt/ruby-enterprise-20081215'
+in the upgrade source tarball's installer.
+
+=== Uninstallation
+If you installed REE through a Debian package, then uninstall the Debian package
+with 'dpkg' or with 'apt-get'.
+
+If you installed REE through the source tarball, then you can uninstall it by
+deleting the directory in which REE is installed. For example, if REE was
+installed to '/opt/ruby-enterprise-X.X.X' (the default), then just delete that
+directory. It is for this reason why we recommend installing REE into its own
+directory.
+
+== Copy-on-write friendliness of the garbage collector
+By default, REE's garbage collector is not copy-on-write-friendly, just like
+a stock Ruby interpreter. Copy-on-write-friendliness can be turned on during
+runtime by calling:
+
+[source, ruby]
+-----------------------------------------------
+GC.copy_on_write_friendly = true
+-----------------------------------------------
+
+Note that Phusion Passenger automatically turns on the copy-on-write-friendly
+mode whenever it detects that it's running in REE.
+
+With the following method, one can check whether the garbage collector is in
+copy-on-write-friendly mode:
+
+[source, ruby]
+-----------------------------------------------
+GC.copy_on_write_friendly?
+-----------------------------------------------
+
+
+== Garbage collector performance tuning
+Ruby's garbage collector tries to adapt memory usage to the amount of memory
+used by the program by dynamically growing or shrinking the allocated heap as
+it sees fit. For long running server applications, this approach isn't always
+the most efficient one. The performance very much depends on the ratio
+`heap_size / program_size`. It behaves somewhat erratic: adding code can
+actually make your program run faster.
+
+With REE, one can tune the garbage collector's behavior for better server
+performance. It is possible to specify the initial heap size to start with.
+The heap size will never drop below the initial size. By carefully selecting
+the initial heap size one can decrease startup time and increase throughput
+of server applications.
+
+Garbage collector behavior is controlled through the following environment
+variables. These environment variables must be set prior to invoking the Ruby
+interpreter.
+
+*`RUBY_HEAP_MIN_SLOTS`*::
+	This specifies the initial number of heap slots. The default is '10000'.
+
+*`RUBY_HEAP_SLOTS_INCREMENT`*::
+	The number of additional heap slots to allocate when Ruby needs to
+	allocate new heap slots for the first time. The default is '10000'.
++
+For example, suppose that the default GC settings are in effect, and 10000 Ruby
+objects exist on the heap (= 10000 used heap slots). When the program creates
+another object, Ruby will allocate a new heap with 10000 heap slots in it.
+There are now 20000 heap slots in total, of which 10001 are used and 9999 are
+unused.
+
+*`RUBY_HEAP_SLOTS_GROWTH_FACTOR`*::
+	Multiplicator used for calculating the number of new heaps slots to
+	allocate next time Ruby needs new heap slots. The default is '1.8'.
++
+Take the program in the last example. Suppose that the program creates 10000
+more objects. Upon creating the 10000th object, Ruby needs to allocate another
+heap. This heap will have `10000 * 1.8 = 18000` heap slots. There are now
+`20000 + 18000 = 38000` heap slots in total, of which 20001 are used and
+17999 are unused.
++
+The next time Ruby needs to allocate a new heap, that heap will have
+`18000 * 1.8 = 32400` heap slots.
+
+*`RUBY_GC_MALLOC_LIMIT`*::
+	The amount of C data structures which can be allocated without
+	triggering a garbage collection. If this is set too low, then the
+	garbage collector will be started even if there are empty heap slots
+	available. The default value is '8000000'.
+
+*`RUBY_HEAP_FREE_MIN`*::
+	The number of heap slots that should be available after a garbage
+	collector run. If fewer heap slots are available, then Ruby will
+	allocate a new heap according to the `RUBY_HEAP_SLOTS_INCREMENT` and
+	`RUBY_HEAP_SLOTS_GROWTH_FACTOR` parameters. The default value is '4096'.
+
+The best settings varies from application to application. You should try
+experimenting with the values. 37signals uses the following settings in
+production:
+
+----------------------------------
+RUBY_HEAP_MIN_SLOTS=600000
+RUBY_GC_MALLOC_LIMIT=59000000
+RUBY_HEAP_FREE_MIN=100000
+----------------------------------
+
+== Garbage collector statistics
+One can inspect various garbage collector statistics by calling certain methods.
+Statistics collection is disabled by default, so before one can obtain the
+statistics, statistics collection must be enabled by calling:
+
+[source,ruby]
+--------------------------
+GC.enable_stats
+--------------------------
+
+There's a very minor performance penalty when statistics collection is enabled.
+Statistics collection can be disabled by calling:
+
+[source,ruby]
+--------------------------
+GC.disable_stats
+--------------------------
+
+The following methods are available for obtaining the collected statistics
+information:
+
+*`GC.collections`*::
+	Returns the number of garbage collections that have been performed
+	since GC statistics collection was enabled.
++
+[source, ruby]
+----------------------------
+GC.enable_stats
+do_something
+GC.collections     # => 20
+----------------------------
+
+*`GC.time`*::
+	Returns the total amount of time that has been spent on garbage
+	collection since GC statistics collection was enabled, in microseconds.
++
+[source, ruby]
+----------------------------
+GC.enable_stats
+do_something
+GC.time            # => 3000000
+----------------------------
+
+*`GC.dump`*::
+	Dumps information about the current GC data structures to the GC
+	log file, to `stderr` if no GC log file is specified. One can specify
+	the GC log file in the `RUBY_GC_DATA_FILE` environment variable, which
+	must be set before starting the Ruby interpreter.
++
+At this moment, the only thing that this method does is printing the size of
+each Ruby heap.
+
+The collected statistics information can be cleared by calling:
+
+[source,ruby]
+--------------------------
+GC.clear_stats
+--------------------------
+
+
+== Memory allocation and object heap statistics
+One can obtain various statistics about object allocation. Some of the
+statistics methods listed here require one to explicitly enable statistics
+collection, just like the garbage collection statistics methods.
+
+The following methods are available:
+
+*`GC.allocated_size`*::
+	Returns the amount of memory (in bytes) that has been allocated since
+	GC statistics collection was enabled. This is the total amount of bytes
+	that has been passed to the C function `ruby_xmalloc()` so far.
++
+[source, ruby]
+--------------------------------
+GC.allocated_size    #=> 4070
+--------------------------------
+
+*`GC.num_allocations`*::
+	Returns the number of memory allocation requests that have been
+	performed since GC statistics collection was enabled. This is the
+	number of times that the C function `ruby_xmalloc()` has been called.
++
+[source, ruby]
+--------------------------------
+GC.num_allocations   #=> 4070
+--------------------------------
+
+*`ObjectSpace.live_objects`*::
+	Returns the number of objects that are currently allocated in the
+	system. This value usually goes down after the garbage collector runs.
+	This method does not require one to enable statistics collection.
++
+[source, ruby]
+--------------------------------
+ObjectSpace.live_objects   #=> 30873
+--------------------------------
+
+*`ObjectSpace.allocated_objects`*::
+	Returns the number of objects that have been allocated since the Ruby
+	interpreter started. This number can only increase. To know how many
+	objects are currently allocated, use `ObjectSpace.live_objects` instead.
++
+[source, ruby]
+--------------------------------
+ObjectSpace.allocated_objects   #=> 33266
+--------------------------------
+
+
+== Obtaining the backtrace of all threads
+The method `caller_for_all_threads` returns a Hash which maps each currently
+running thread to the thread's backtrace. A backtrace is an array of strings,
+in the same format as the return value of the method `caller`. For example,
+consider the following program `test.rb`:
+
+[source, ruby]
+---------------------------------
+require 'thread'
+require 'pp'
+
+def foo
+   bar
+end
+
+def bar
+   sleep 10
+end
+
+thread1 = Thread.new do
+   foo
+end
+
+thread2 = Thread.new do
+   STDIN.readline
+end
+
+# Give other threads some chance to run.
+sleep 0.1
+
+pp caller_for_all_threads
+---------------------------------
+
+This program will print:
+
+---------------------------------
+{#<Thread:0x8261954 sleep>=>
+  ["test.rb:9:in `bar'",
+   "test.rb:5:in `foo'",
+   "test.rb:13",
+   "test.rb:12:in `initialize'",
+   "test.rb:12:in `new'",
+   "test.rb:12"],
+ #<Thread:0x81986a8 run>=>["test.rb:23"],
+ #<Thread:0x82618c8 sleep>=>
+  ["test.rb:17",
+   "test.rb:16:in `initialize'",
+   "test.rb:16:in `new'",
+   "test.rb:16"]}
+---------------------------------
+
+=== Phusion Passenger integration
+`caller_for_all_threads` support is integrated into Phusion Passenger version 2.1
+(which at the time of writing hasn't been released yet). Upon sending a 'SIGQUIT'
+signal to a Phusion Passenger backend process, it will print the backtrace of
+all threads to the Apache error log. This feature is also documented in the
+Phusion Passenger users guide.
+
