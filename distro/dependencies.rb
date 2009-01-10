@@ -163,7 +163,9 @@ module Dependencies # :nodoc: all
 		dep.define_checker do |result|
 			begin
 				File.open('/tmp/r8ee-check.c', 'w') do |f|
-					f.write("#include <readline/readline.h>")
+					# readline.h doesn't work on OS X unless we #include stdio.h
+					f.puts("#include <stdio.h>")
+					f.puts("#include <readline/readline.h>")
 				end
 				Dir.chdir('/tmp') do
 					if system("(#{PlatformInfo::CC || 'gcc'} -c r8ee-check.c) >/dev/null 2>/dev/null")
