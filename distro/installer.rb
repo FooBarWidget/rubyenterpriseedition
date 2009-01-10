@@ -191,8 +191,7 @@ private
 	end
 	
 	def compile_system_allocator
-		if tcmalloc_supported? &&
-		   platform_uses_two_level_namespace_for_dynamic_libraries?
+		if platform_uses_two_level_namespace_for_dynamic_libraries?
 			Dir.chdir("source") do
 				@using_system_allocator_library = true
 				# On platforms that use a two-level symbol namespace for
@@ -212,24 +211,22 @@ private
 			# No idea why, but sometimes 'make' fails unless we do this.
 			sh("mkdir -p .ext/common")
 			
-			if tcmalloc_supported?
-				makefile = File.read('Makefile')
-				if makefile !~ /\$\(PRELIBS\)/
-					makefile.sub!(/^LIBS = (.*)$/, 'LIBS = $(PRELIBS) \1')
-					File.open('Makefile', 'w') do |f|
-						f.write(makefile)
-					end
+			makefile = File.read('Makefile')
+			if makefile !~ /\$\(PRELIBS\)/
+				makefile.sub!(/^LIBS = (.*)$/, 'LIBS = $(PRELIBS) \1')
+				File.open('Makefile', 'w') do |f|
+					f.write(makefile)
 				end
-				
-				prelibs = "-Wl,-rpath,#{@prefix}/lib -L#{@destdir}#{@prefix}/lib -ltcmalloc_minimal"
-				if platform_uses_two_level_namespace_for_dynamic_libraries?
-					prelibs << " -lsystem_allocator"
-				end
-				
-				return sh("make PRELIBS='#{prelibs}'")
-			else
-				return sh("make")
 			end
+			
+			prelibs = "-Wl,-rpath,#{@prefix}/lib -L#{@destdir}#{@prefix}/lib"
+			if tcmalloc_supported?
+				prelibs << " -ltcmalloc_minimal "
+			end
+			if platform_uses_two_level_namespace_for_dynamic_libraries?
+				prelibs << " -lsystem_allocator"
+			end
+			return sh("make PRELIBS='#{prelibs}'")
 		end
 	end
 	
