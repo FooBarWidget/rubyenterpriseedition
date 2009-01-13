@@ -1,5 +1,7 @@
 require 'distro/tasks'
 
+verbose true
+
 desc "Create a patch for upstream Ruby"
 task :make_patch do
 	require 'yaml'
