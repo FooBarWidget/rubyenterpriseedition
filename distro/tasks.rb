@@ -45,7 +45,7 @@ end
 desc "Create a Debian package."
 task 'package:debian' => :fakeroot do
 	sh "cp -R distro/debian fakeroot/DEBIAN"
-	sh "fakeroot dpkg -b fakeroot ruby-enterprise_#{VENDOR_RUBY_VERSION}-#{REE_VERSION}-i386.deb"
+	sh "fakeroot dpkg -b fakeroot ruby-enterprise_#{VENDOR_RUBY_VERSION}-#{REE_VERSION}_i386.deb"
 end
 
 # Check whether the specified command is in $PATH, and return its
