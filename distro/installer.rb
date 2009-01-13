@@ -472,6 +472,9 @@ private
 			# computer the REE tarball was created on.
 			if Dir["*.o"].empty?
 				system("touch -r / *")
+				if File.directory?("m4")
+					system("touch -r / m4/*")
+				end
 			end
 			
 			if @prefix_changed || !File.exist?("Makefile")
