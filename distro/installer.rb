@@ -182,7 +182,7 @@ private
 			# libraries in-place can cause existing processes that use
 			# those libraries to crash.
 			sh("rm -f '#{@destdir}#{@prefix}/lib'/libtcmalloc_minimal*.#{PlatformInfo::LIBEXT}*") &&
-			sh("cp -f .libs/libtcmalloc_minimal*.#{PlatformInfo::LIBEXT}* '#{@destdir}#{@prefix}/lib/'")
+			sh("cp -pf .libs/libtcmalloc_minimal*.#{PlatformInfo::LIBEXT}* '#{@destdir}#{@prefix}/lib/'")
 		end
 	end
 	
