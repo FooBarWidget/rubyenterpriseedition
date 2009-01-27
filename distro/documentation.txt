@@ -13,7 +13,7 @@ Some of these features are gathered from third party Ruby patches:
 RailsBench, RubyProf, caller_for_all_threads.
 
 
-=== Installation
+=== Installation via Debian package or source tarball
 To install REE, download either the source tarball or the Debian package
 from the REE website. The source tarball contains a cross-platform installer.
 Installation instructions are available on the download page.
@@ -51,6 +51,125 @@ You can installer REE non-interactively either by using the Debian package,
 or by passing `--auto=DIRECTORY` to the REE installer. The latter will
 instruct the installer to non-interactively install REE into the specified
 target directory.
+
+=== Manual installation (for experts)
+If you wish to install REE from source, but do not wish to use the included
+installer, or if the installer doesn't work, then you can install REE manually.
+Please follow the instructions below.
+
+Note that these instructions do not cover installing RubyGems.
+
+==== Prerequisites
+
+You need to have the following dependencies installed:
+
+1. A C and C++ compiler, preferrably gcc.
+2. C development headers for zlib.
+3. C development headers for OpenSSL.
+4. C development headers for GNU Readline.
+5. yacc or bison.
+
+==== Step 1: Download and extract the source tarball
+Type:
+--------------------------
+tar xzvf ruby-enterprise-x.x.x.tar.gz
+--------------------------
+
+A directory called 'ruby-enterprise-x.x.x' will now appear.
+
+==== Step 2: Install tcmalloc
+Tcmalloc is a memory allocator which is usually more efficient than the
+platform's native memory allocator. REE doesn't require tcmalloc, but it will
+work better if tcmalloc is installed.
+
+Compile tcmalloc as follows:
+
+--------------------------
+cd ruby-enterprise-x.x.x/source/vendor/google-perftools-*
+./configure --prefix=$PREFIX --disable-dependency-tracking
+make libtcmalloc_minimal.la
+--------------------------
+
+where '$PREFIX' is the prefix you want to install tcmalloc to. If compilation
+fails, then skip to step 3. REE will work fine without tcmalloc.
+
+After compilation, install tcmalloc as follows:
+
+--------------------------
+sudo mkdir -p $PREFIX/lib
+sudo rm -f $PREFIX/lib/libtcmalloc_minimal*.so*
+sudo cp -pf .libs/libtcmalloc_minimal*.so* $PREFIX/lib/
+--------------------------
+
+.MacOS X note
+NOTE: Instead of typing 'libtcmalloc_minimal*.so*', type
+      'libtcmalloc_minimal*.bundle*'.
+
+NOTE: The reason why we don't instruct you to type 'make' and 'make install'
+      is because compiling tcmalloc with 'make' usually doesn't work on 64-bit
+      platforms. The above instructions are a little bit more complex, but they
+      work on all platforms where tcmalloc is supported.
+
+==== Step 3: Configure REE
+
+Change the current working directory to 'ruby-enterprise-x.x.x/source'. If
+you were previously in the google-perftools directory, then type:
+
+--------------------------
+cd ../..
+--------------------------
+
+Run the configure script:
+
+--------------------------
+./configure --prefix=$PREFIX
+--------------------------
+
+where '$PREFIX' is the prefix you want to install tcmalloc to.
+
+==== Step 4: Compiling and installing the system_allocator library (MacOS X only)
+
+If you are on MacOS X, then compile and install the 'sytem_allocator' library:
+
+--------------------------
+gcc -dynamiclib system_allocator.c -install_name @rpath/libsystem_allocator.dylib -o libsystem_allocator.dylib
+sudo install source/libsystem_allocator.dylib $PREFIX/lib/
+--------------------------
+
+==== Step 5: compiling and installing REE
+
+Open 'Makefile'. Search for a line which starts with:
+
+--------------------------
+LIBS = 
+--------------------------
+
+Append the string '$(PRELIBS)' to the part after the '=' sign. For example,
+on Ubuntu 8.04, the 'LIBS = ' line becomes:
+
+--------------------------
+LIBS = $(PRELIBS) -ldl -lcrypt -lm  $(EXTLIBS)
+--------------------------
+
+Save the file. Now we can proceed with compiling REE:
+
+--------------------------
+make PRELIBS="-Wl,-rpath,$PREFIX/lib -L$PREFIX/lib -ltcmalloc_minimal"
+--------------------------
+
+Notes:
+
+1. If you did not install tcmalloc, then you can omit the '-ltcmalloc_minimal'
+   part.
+2. If you are on MacOS X, then you need to append '-lsystem_allocator' to the
+   'PRELIBS' option.
+
+Now that REE has been compiled, install it with:
+
+--------------------------
+sudo make install
+--------------------------
+
 
 === How REE installs itself into the system
 By default, REE installs itself into a directory in '/opt'. If you already had a
