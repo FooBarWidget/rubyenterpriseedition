@@ -441,7 +441,7 @@ variable.$(OBJEXT): {$(VPATH)}variable.c {$(VPATH)}ruby.h config.h \
   {$(VPATH)}env.h {$(VPATH)}node.h {$(VPATH)}st.h {$(VPATH)}util.h
 version.$(OBJEXT): {$(VPATH)}version.c {$(VPATH)}ruby.h config.h \
   {$(VPATH)}defines.h {$(VPATH)}intern.h {$(VPATH)}missing.h \
-  {$(VPATH)}version.h
+  {$(VPATH)}rubysig.h {$(VPATH)}version.h
 
 dist: $(PROGRAM)
 	$(RUNRUBY) $(srcdir)/distruby.rb

@@ -409,10 +409,8 @@ struct rb_thread {
 
     VALUE result;
 
-    long   stk_len;
-    long   stk_max;
-    VALUE *stk_ptr;
-    VALUE *stk_pos;
+    long   stk_len, stk_max;
+    VALUE *stk_ptr, *stk_pos, *stk_start;
 #ifdef __ia64
     long   bstr_len;
     long   bstr_max;
