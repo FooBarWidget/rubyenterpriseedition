@@ -1,3 +1,9 @@
+Mon Feb 16 10:53:52 2008  Brent Roman  <brent@mbari.org>
+
+	* backport from 1.8.7p72-mbari of MBARI patches described at
+          http://sites.google.com/site/brentsrubypatches
+          fails YAML test_object_id_collision
+
 Fri Aug  8 10:53:52 2008  Tanaka Akira  <akr@fsij.org>
 
 	* lib/resolv.rb: randomize source port and transaction id.
