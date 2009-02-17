@@ -4170,7 +4170,7 @@ rb_eval(self, n)
       case NODE_DEFINED:
 	{
 	    char buf[20];
-	    char *desc = is_defined(self, node->nd_head, buf);
+	    const char *desc = is_defined(self, node->nd_head, buf);
 
 	    if (desc) result = rb_str_new2(desc);
 	    else result = Qnil;
@@ -11928,6 +11928,15 @@ rb_thread_abort_exc_set(thread, val)
     rb_secure(4);
     THREAD_DATA(thread)->abort = RTEST(val);
     return val;
+}
+
+
+enum rb_thread_status
+rb_thread_status(thread)
+    VALUE thread;
+{
+    rb_thread_t th = THREAD_DATA(thread);
+    return th->status;
 }
 
 
