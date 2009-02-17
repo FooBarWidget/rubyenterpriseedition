@@ -572,12 +572,12 @@ stack_grow_direction(addr)
 #endif
 
 int
-ruby_stack_length(base)
-    VALUE **base;
+ruby_stack_length(start, base)
+    VALUE *start, **base;
 {
     SET_STACK_END;
-    if (base) *base = STACK_UPPER(rb_gc_stack_start, STACK_END);
-    return STACK_LENGTH(rb_gc_stack_start);
+    if (base) *base = STACK_UPPER(start, STACK_END);
+    return STACK_LENGTH(start);
 }
 
 int
@@ -1446,14 +1446,14 @@ garbage_collect_0(VALUE *top_frame)
     setjmp(save_regs_gc_mark);
     mark_locations_array((VALUE*)save_regs_gc_mark, sizeof(save_regs_gc_mark) / sizeof(VALUE *));
 #if STACK_GROW_DIRECTION < 0
-    rb_gc_mark_locations(top_frame, rb_gc_stack_start);
+    rb_gc_mark_locations(top_frame, rb_curr_thread->stk_start);
 #elif STACK_GROW_DIRECTION > 0
-    rb_gc_mark_locations(rb_gc_stack_start, top_frame + 1);
+    rb_gc_mark_locations(rb_curr_thread->stk_start, top_frame + 1);
 #else
     if (rb_gc_stack_grow_direction < 0)
-	rb_gc_mark_locations(top_frame, rb_gc_stack_start);
+	rb_gc_mark_locations(top_frame, rb_curr_thread->stk_start);
     else
-	rb_gc_mark_locations(rb_gc_stack_start, top_frame + 1);
+	rb_gc_mark_locations(rb_curr_thread->stk_start, top_frame + 1);
 #endif
 #ifdef __ia64
     /* mark backing store (flushed register window on the stack) */
@@ -1462,7 +1462,7 @@ garbage_collect_0(VALUE *top_frame)
 #endif
 #if defined(__human68k__) || defined(__mc68000__)
     rb_gc_mark_locations((VALUE*)((char*)STACK_END + 2),
-			 (VALUE*)((char*)rb_gc_stack_start + 2));
+			 (VALUE*)((char*)rb_curr_thread->stk_start + 2));
 #endif
     rb_gc_mark_threads();
 
