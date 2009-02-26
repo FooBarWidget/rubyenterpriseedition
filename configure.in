@@ -142,7 +142,7 @@ fi
 AC_ARG_ENABLE(mbari-api,
        [  --enable-mbari-api      enable API changes from the MBARI patches. ],
        [mbari_api=$enableval])
-if test $mbari_api = yes; then
+if test "$mbari_api" = yes; then
     AC_DEFINE(MBARI_API)
 fi
 AC_ARG_WITH(wipe-sites,
