@@ -1,7 +1,7 @@
 #define RUBY_VERSION "1.8.6"
-#define RUBY_RELEASE_DATE "2009-2-16"
+#define RUBY_RELEASE_DATE "2009-2-25"
 #define RUBY_VERSION_CODE 186
-#define RUBY_RELEASE_CODE 20090216
+#define RUBY_RELEASE_CODE 20090225
 #define RUBY_PATCHLEVEL 287
 
 #define RUBY_VERSION_MAJOR 1
@@ -9,7 +9,7 @@
 #define RUBY_VERSION_TEENY 6
 #define RUBY_RELEASE_YEAR 2009
 #define RUBY_RELEASE_MONTH 2
-#define RUBY_RELEASE_DAY 16
+#define RUBY_RELEASE_DAY 25
 
 #ifdef RUBY_EXTERN
 RUBY_EXTERN const char ruby_version[];
@@ -27,15 +27,15 @@ RUBY_EXTERN const char *ruby_copyright;
 
 #include "rubysig.h"
 
+#define string_arg(s) #s
+
 #ifdef MBARI_API
 #define _mbari_rev_ "MBARI"
 #else
 #define _mbari_rev_ "mbari"
 #endif
 
-#define string_arg(s) #s
-
-#define MBARI_RELEASE(wipe_sites) _mbari_rev_ " 7+/" string_arg(wipe_sites)
+#define MBARI_RELEASE(wipe_sites) _mbari_rev_ " 8A/" string_arg(wipe_sites)
 
 #define RUBY_RELEASE_STR MBARI_RELEASE(STACK_WIPE_SITES) " on patchlevel"
 #define RUBY_RELEASE_NUM RUBY_PATCHLEVEL

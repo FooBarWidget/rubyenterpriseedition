@@ -1,3 +1,8 @@
+Mon Feb 25 10:53:52 2008  Brent Roman  <brent@mbari.org>
+
+	* backported MBARI 8A patches still
+          fails YAML test_object_id_collision
+
 Mon Feb 16 10:53:52 2008  Brent Roman  <brent@mbari.org>
 
 	* backport from 1.8.7p72-mbari of MBARI patches described at

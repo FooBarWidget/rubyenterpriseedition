@@ -37,30 +37,11 @@ void rb_io_fptr_finalize _((struct OpenFile*));
 #define setjmp(env) _setjmp(env)
 #endif
 
-/* Make alloca work the best possible way.  */
-#ifdef __GNUC__
-# ifndef atarist
-#  ifndef alloca
-#   define alloca __builtin_alloca
-#  endif
-# endif /* atarist */
-#else
-# ifdef HAVE_ALLOCA_H
-#  include <alloca.h>
-# else
-#  ifndef _AIX
-#   ifndef alloca /* predefined by HP cc +Olibcalls */
-void *alloca ();
-#   endif
-#  endif /* AIX */
-# endif /* HAVE_ALLOCA_H */
-#endif /* __GNUC__ */
-
 #ifndef GC_MALLOC_LIMIT
 #if defined(MSDOS) || defined(__human68k__)
 #define GC_MALLOC_LIMIT 200000
 #else
-#define GC_MALLOC_LIMIT 8000000
+#define GC_MALLOC_LIMIT (2000000*sizeof(VALUE))
 #endif
 #endif
 
@@ -103,7 +84,7 @@ static VALUE gc_getlimit(VALUE mod)
  *     GC.limit=5000000   #=> 5000000
  *     GC.limit           #=> 5000000
  *     GC.limit=-50       #=> 5000000
- *     GC.limit=0         #=> 0
+ *     GC.limit=0         #=> 0  #functionally equivalent to GC.stress=true
  *
  *  <i>Only available when MBARI_API extentions are enabled at build time</i>
  */
@@ -144,6 +125,55 @@ static VALUE gc_exorcise(VALUE mod)
   rb_gc_wipe_stack();
   return Qnil;
 }
+
+#else /* no api changes */
+
+static size_t unstressed_malloc_limit = GC_MALLOC_LIMIT;
+
+/*
+ *  call-seq:
+ *    GC.stress                 => true or false
+ *
+ *  returns current status of GC stress mode.
+ *
+ *  <i>Only available when MBARI_API extentions are disabled at build time</i>
+ */
+
+static VALUE
+gc_stress_get(self)
+    VALUE self;
+{
+    return malloc_limit ? Qfalse : Qtrue;
+}
+
+/*
+ *  call-seq:
+ *    GC.stress = bool          => bool
+ *
+ *  updates GC stress mode.
+ *
+ *  When GC.stress = true, GC is invoked for all GC opportunity:
+ *  all memory and object allocation.
+ *
+ *  Since it makes Ruby very slow, it is only for debugging.
+ *
+ *  <i>Only available when MBARI_API extentions are enabled at build time</i>
+ */
+
+static VALUE
+gc_stress_set(self, bool)
+    VALUE self, bool;
+{
+    rb_secure(2);
+    if (!RTEST(bool))
+      malloc_limit = unstressed_malloc_limit;
+    else if (malloc_limit > 0) {
+      unstressed_malloc_limit = malloc_limit;
+      malloc_limit = 0;
+    }
+    return bool;
+}
+
 #endif /* MBARI_API */
 
 static void run_final();
@@ -478,7 +508,7 @@ rb_newobj()
     if (during_gc)
 	rb_bug("object allocation during garbage collection phase");
 
-    if (!freelist) garbage_collect();
+    if (!malloc_limit || !freelist) garbage_collect();
 
     obj = (VALUE)freelist;
     freelist = freelist->as.free.next;
@@ -535,6 +565,7 @@ static unsigned int STACK_LEVEL_MAX = 655300;
 
 #ifndef nativeAllocA
   /* portable way to return an approximate stack pointer */
+NOINLINE(VALUE *__sp(void));
 VALUE *__sp(void) {
   VALUE tos;
   return &tos;
@@ -571,7 +602,7 @@ stack_grow_direction(addr)
 # define STACK_UPPER(a, b) (rb_gc_stack_grow_direction > 0 ? a : b)
 #endif
 
-int
+size_t
 ruby_stack_length(start, base)
     VALUE *start, **base;
 {
@@ -756,7 +787,7 @@ mark_locations_array(x, n)
     }
 }
 
-void inline
+inline void
 rb_gc_mark_locations(start, end)
     VALUE *start, *end;
 {
@@ -1126,7 +1157,7 @@ gc_sweep()
     RVALUE *p, *pend, *final_list;
     int freed = 0;
     int i;
-    unsigned long free_min = 0;
+    long free_min = 0;
 
     for (i = 0; i < heaps_used; i++) {
         free_min += heaps[i].limit;
@@ -1402,7 +1433,6 @@ garbage_collect_0(VALUE *top_frame)
 {
     struct gc_list *list;
     struct FRAME * frame;
-    jmp_buf save_regs_gc_mark;
     SET_STACK_END;
 
 #ifdef HAVE_NATIVETHREAD
@@ -1441,10 +1471,6 @@ garbage_collect_0(VALUE *top_frame)
 	mark_tbl(finalizer_table);
     }
 
-    FLUSH_REGISTER_WINDOWS;
-    /* This assumes that all registers are saved into the jmp_buf (and stack) */
-    setjmp(save_regs_gc_mark);
-    mark_locations_array((VALUE*)save_regs_gc_mark, sizeof(save_regs_gc_mark) / sizeof(VALUE *));
 #if STACK_GROW_DIRECTION < 0
     rb_gc_mark_locations(top_frame, rb_curr_thread->stk_start);
 #elif STACK_GROW_DIRECTION > 0
@@ -1499,13 +1525,17 @@ garbage_collect_0(VALUE *top_frame)
 static void
 garbage_collect()
 {
+  jmp_buf save_regs_gc_mark;
   VALUE *top = __sp();
+  FLUSH_REGISTER_WINDOWS;
+  /* This assumes that all registers are saved into the jmp_buf (and stack) */
+  setjmp(save_regs_gc_mark);
+
 #if STACK_WIPE_SITES & 0x400
 # ifdef nativeAllocA
   if (__stack_past (top, stack_limit)) {
   /* allocate a large frame to ensure app stack cannot grow into GC stack */
-    volatile char *spacer = 
-                    nativeAllocA(__stack_depth((void*)stack_limit,(void*)top));
+    (volatile void*) nativeAllocA(__stack_depth((void*)stack_limit,(void*)top));
   }  
   garbage_collect_0(top);
 # else /* no native alloca() available */
@@ -2147,6 +2177,9 @@ Init_GC()
     rb_define_singleton_method(rb_mGC, "limit=", gc_setlimit, 1);
     rb_define_singleton_method(rb_mGC, "growth", gc_growth, 0);
     rb_define_singleton_method(rb_mGC, "exorcise", gc_exorcise, 0);
+#else
+    rb_define_singleton_method(rb_mGC, "stress", gc_stress_get, 0);
+    rb_define_singleton_method(rb_mGC, "stress=", gc_stress_set, 1);
 #endif
     rb_define_method(rb_mGC, "garbage_collect", rb_gc_start, 0);
 

@@ -224,7 +224,7 @@ static VALUE proc_invoke _((VALUE,VALUE,VALUE,VALUE));
 static VALUE rb_f_binding _((VALUE));
 NOINLINE(static void rb_f_END _((void)));
 static VALUE rb_f_block_given_p _((void));
-static VALUE block_pass _((VALUE,NODE*));
+static VALUE block_pass _((volatile VALUE, volatile NODE *));
 
 VALUE rb_cMethod;
 static VALUE method_call _((int, VALUE*, VALUE));
@@ -992,7 +992,7 @@ rb_svar(cnt)
     ID id;
 
     if (!ruby_scope->local_tbl) return NULL;
-    if (cnt >= ruby_scope->local_tbl[0]) return NULL;
+    if ((ID)cnt >= ruby_scope->local_tbl[0]) return NULL;
     id = ruby_scope->local_tbl[cnt+1];
     while (vars) {
 	if (vars->id == id) return &vars->val;
@@ -1150,10 +1150,11 @@ static void scope_dup _((struct SCOPE *));
 } while (0)
 
 static VALUE rb_eval _((VALUE,NODE*));
-static VALUE eval _((VALUE,VALUE,VALUE,const char*,int));
+static VALUE eval _((VALUE,VALUE,volatile VALUE,const char* volatile,int));
 static NODE *compile _((VALUE, const char*, int));
 
-static VALUE rb_yield_0 _((VALUE, VALUE, VALUE, int, int));
+static VALUE rb_yield_0 
+               _((volatile VALUE, volatile VALUE, VALUE, int, volatile int));
 
 #if STACK_WIPE_SITES & 0x20
 #define wipeBeforeYield()  rb_gc_wipe_stack()
@@ -1168,7 +1169,7 @@ static VALUE rb_yield_0 _((VALUE, VALUE, VALUE, int, int));
 #define YIELD_FUNC_SVALUE 2
 
 static VALUE rb_call _((VALUE,VALUE,ID,int,const VALUE*,int,VALUE));
-static VALUE module_setup _((VALUE,NODE*));
+static VALUE module_setup _((VALUE,NODE *volatile));
 
 static VALUE massign _((VALUE,NODE*,VALUE,int));
 static void assign _((VALUE,NODE*,VALUE,int));
@@ -1261,15 +1262,15 @@ set_backtrace(info, bt)
 static void
 error_print()
 {
-    VALUE errat = Qnil;		/* OK */
+    VALUE errat;
     volatile VALUE eclass, e;
-    const char *einfo;
+    const char * einfo;
     long elen;
 
     if (NIL_P(ruby_errinfo)) return;
 
     PUSH_TAG(PROT_NONE);
-    errat = EXEC_TAG() == 0 ? get_backtrace(ruby_errinfo) : Qnil;
+    errat = EXEC_TAG() ? Qnil : get_backtrace(ruby_errinfo);
     if (EXEC_TAG()) goto error;
     if (NIL_P(errat)){
 	ruby_set_current_source();
@@ -1451,7 +1452,7 @@ ruby_init()
 }
 
 static VALUE
-eval_node(self, node)
+eval_tree(self, node)
     VALUE self;
     NODE *node;
 {
@@ -1601,11 +1602,11 @@ ruby_finalize()
 
 int
 ruby_cleanup(ex)
-    int ex;
+    volatile int ex;
 {
     int state;
     volatile VALUE errs[2];
-    int nerr;
+    unsigned nerr;
 
     errs[1] = ruby_errinfo;
     ruby_safe_level = 0;
@@ -1668,7 +1669,7 @@ ruby_exec_internal()
     /* default visibility is private at toplevel */
     SCOPE_SET(SCOPE_PRIVATE);
     if ((state = EXEC_TAG()) == 0) {
-	eval_node(ruby_top_self, ruby_eval_tree);
+	eval_tree(ruby_top_self, ruby_eval_tree);
     }
     POP_ITER();
     POP_TAG();
@@ -1876,8 +1877,8 @@ rb_eval_cmd(cmd, arg, level)
     int level;
 {
     int state;
-    VALUE val = Qnil;		/* OK */
-    struct SCOPE *saved_scope;
+    VALUE val;
+    struct SCOPE * volatile saved_scope;
     volatile int safe = ruby_safe_level;
 
     if (OBJ_TAINTED(cmd)) {
@@ -1908,9 +1909,7 @@ rb_eval_cmd(cmd, arg, level)
     ruby_safe_level = level;
 
     PUSH_TAG(PROT_NONE);
-    if ((state = EXEC_TAG()) == 0) {
-	val = eval(ruby_top_self, cmd, Qnil, 0, 0);
-    }
+    val = (state = EXEC_TAG()) ? Qnil : eval(ruby_top_self, cmd, Qnil, 0, 0);
     if (ruby_scope->flags & SCOPE_DONT_RECYCLE)
 	scope_dup(saved_scope);
     ruby_scope = saved_scope;
@@ -1951,7 +1950,7 @@ ev_const_defined(cref, id, self)
 
 NOINLINE(static VALUE ev_const_get _((NODE *cref, ID id, VALUE self)));
 NOINLINE(static void eval_cvar_set _((NODE *node, VALUE result, int warn)));
-NOINLINE(static void eval_cdecl _((VALUE self, NODE *node, VALUE result)));
+NOINLINE(static void eval_cdecl _((VALUE self, NODE *node, VALUE value)));
 
 static VALUE
 ev_const_get(cref, id, self)
@@ -2390,10 +2389,10 @@ arg_defined(self, node, buf, type)
 static const char*
 is_defined(self, node, buf)
     VALUE self;
-    NODE *node;			/* OK */
+    NODE *node;
     char *buf;
 {
-    VALUE val;			/* OK */
+    VALUE val;
     int state;
 
   again:
@@ -2738,14 +2737,15 @@ call_trace_func(event, node, self, id, klass)
     NODE *node;
     VALUE self;
     ID id;
-    VALUE klass;		/* OK */
+    VALUE klass;
 {
-    int state, raised;
+    int state;
+    volatile int raised;
     struct FRAME *prev;
-    NODE *node_save;
+    NODE * volatile node_save;
     VALUE srcfile;
     const char *event_name;
-    rb_thread_t th = curr_thread;
+    volatile rb_thread_t th = curr_thread;
 
     if (!trace_func) return;
     if (tracing) return;
@@ -2954,11 +2954,11 @@ class_prefix(self, cpath)
 NORETURN(static void return_jump _((VALUE)));
 NORETURN(static void break_jump _((VALUE)));
 NORETURN(static void next_jump _((VALUE)));
-NORETURN(static void unknown_node _((NODE * volatile)));
+NORETURN(static void unknown_node _((NODE *)));
 
 static void
 unknown_node(node)
-    NODE *volatile node;
+    NODE *node;
 {
     ruby_current_node = 0;
     if (node->flags == 0) {
@@ -2975,18 +2975,23 @@ unknown_node(node)
 /*
  *  functions factored out of rb_eval() to reduce its stack frame size
  */
-#define eval_body(n,type)  \
-NOINLINE(static type TOKEN_PASTE(eval_,n) _((VALUE self, NODE *node)));\
-static type TOKEN_PASTE(eval_,n)(self, node) VALUE self; NODE *node;
+#define eval_node_0(n,retType, self, node)  \
+NOINLINE(static retType TOKEN_PASTE(eval_,n) _((self, node)));\
+static retType TOKEN_PASTE(eval_,n)(self, node)
 
-eval_body(match2, VALUE)
+#define eval_node(n,retType) \
+  eval_node_0(n,retType, VALUE self, NODE *node)
+#define eval_node_volatile(n,retType) \
+  eval_node_0(n,retType, volatile VALUE self, NODE * volatile node)
+
+eval_node(match2, VALUE)
 {
     VALUE l = rb_eval(self,node->nd_recv);
     VALUE r = rb_eval(self,node->nd_value);
     return rb_reg_match(l, r);
 }
 
-eval_body(match3, VALUE)
+eval_node(match3, VALUE)
 {
   VALUE r = rb_eval(self,node->nd_recv);
   VALUE l = rb_eval(self,node->nd_value);
@@ -2994,7 +2999,7 @@ eval_body(match3, VALUE)
 }
 
 
-eval_body(opt_n, void)
+eval_node_volatile(opt_n, void)
 {
   int state;
   PUSH_TAG(PROT_LOOP);
@@ -3023,7 +3028,7 @@ eval_body(opt_n, void)
 }
 
 
-eval_body(when, NODE*)
+eval_node(when, NODE*)
 {
   do {
       NODE *tag = node->nd_head;
@@ -3050,7 +3055,7 @@ eval_body(when, NODE*)
 }
 
 
-eval_body(case, NODE*)
+eval_node(case, NODE*)
 {
   VALUE val = rb_eval(self, node->nd_head);
   node = node->nd_body;
@@ -3085,24 +3090,26 @@ eval_body(case, NODE*)
 }
 
 
-eval_body(while, VALUE)
+eval_node_volatile(while, VALUE)
 {
   int state;
-  volatile VALUE result = Qnil;
+  VALUE result;
   PUSH_TAG(PROT_LOOP);
   switch (state = EXEC_TAG()) {
     case 0:
-      if (node->nd_state && !RTEST(rb_eval(self, node->nd_cond)))
-	  goto while_out;
-      do {
-	while_redo:
+      if (!(node->nd_state) || RTEST(rb_eval(self, node->nd_cond))) {
+        do {
+	  while_redo:
 #if STACK_WIPE_SITES & 0x10
-          rb_gc_wipe_stack();
+            rb_gc_wipe_stack();
 #endif
-	  rb_eval(self, node->nd_body);
-	while_next:
-	  ;
-      } while (RTEST(rb_eval(self, node->nd_cond)));
+	    rb_eval(self, node->nd_body);
+	  while_next:
+	    ;
+        } while (RTEST(rb_eval(self, node->nd_cond)));
+      }  /* fall thru */
+    default:
+      result=Qnil;
       break;
 
     case TAG_REDO:
@@ -3116,35 +3123,33 @@ eval_body(while, VALUE)
 	  state = 0;
 	  result = prot_tag->retval;
       }
-      /* fall through */
-    default:
-      break;
   }
-while_out:
   POP_TAG();
   if (state) JUMP_TAG(state);
   return result;
 }
 
 
-eval_body(until, VALUE)
+eval_node_volatile(until, VALUE)
 {
   int state;
-  volatile VALUE result = Qnil;
+  VALUE result;
   PUSH_TAG(PROT_LOOP);
   switch (state = EXEC_TAG()) {
     case 0:
-      if (node->nd_state && RTEST(rb_eval(self, node->nd_cond)))
-	  goto until_out;
-      do {
-        until_redo:
-#if STACK_WIPE_SITES & 0x10
-          rb_gc_wipe_stack();
-#endif
-	  rb_eval(self, node->nd_body);
-        until_next:
-	  ;
-      } while (!RTEST(rb_eval(self, node->nd_cond)));
+      if (!(node->nd_state) || !RTEST(rb_eval(self, node->nd_cond))) {
+        do {
+          until_redo:
+  #if STACK_WIPE_SITES & 0x10
+            rb_gc_wipe_stack();
+  #endif
+	    rb_eval(self, node->nd_body);
+          until_next:
+	    ;
+        } while (!RTEST(rb_eval(self, node->nd_cond)));
+      }  /* fall thru */
+    default:
+      result=Qnil;
       break;
 
     case TAG_REDO:
@@ -3158,21 +3163,17 @@ eval_body(until, VALUE)
 	  state = 0;
 	  result = prot_tag->retval;
       }
-      /* fall through */
-    default:
-      break;
   }
- until_out:
   POP_TAG();
   if (state) JUMP_TAG(state);
   return result;
 }
 
 
-eval_body(iter, VALUE)
+eval_node_volatile(iter, VALUE)
 {
   int state;
-  volatile VALUE result = Qnil;
+  VALUE result;
 
   PUSH_TAG(PROT_LOOP);
   PUSH_BLOCK(node->nd_var, node->nd_body);
@@ -3187,15 +3188,13 @@ eval_body(iter, VALUE)
 	  result = rb_eval(self, node->nd_iter);
       }
       else {
-	  VALUE recv;
-
 	  _block.flags &= ~BLOCK_D_SCOPE;
 	  BEGIN_CALLARGS;
-	  recv = rb_eval(self, node->nd_iter);
+	  result = rb_eval(self, node->nd_iter);
 	  END_CALLARGS;
-	  ruby_current_node = node;
+	  ruby_current_node = (NODE *)node;
 	  SET_CURRENT_SOURCE();
-	  result = rb_call(CLASS_OF(recv),recv,each,0,0,0,self);
+	  result = rb_call(CLASS_OF(result),result,each,0,0,0,self);
       }
       POP_ITER();
       break;
@@ -3213,12 +3212,12 @@ eval_body(iter, VALUE)
 }
 
 
-eval_body(rescue, VALUE)
+eval_node_volatile(rescue, VALUE)
 {
     volatile VALUE e_info = ruby_errinfo;
     volatile int rescuing = 0;
     int state;
-    volatile VALUE result = Qnil;
+    VALUE result;
 
     PUSH_TAG(PROT_NONE);
     if ((state = EXEC_TAG()) == 0) {
@@ -3228,6 +3227,7 @@ eval_body(rescue, VALUE)
     else if (rescuing) {
 	if (rescuing < 0) {
 	    /* in rescue argument, just reraise */
+            result = Qnil;
 	}
 	else if (state == TAG_RETRY) {
 	    rescuing = state = 0;
@@ -3269,10 +3269,10 @@ eval_body(rescue, VALUE)
 }
 
 
-eval_body(ensure, VALUE)
+eval_node_volatile(ensure, VALUE)
 {
   int state;
-  volatile VALUE result = Qnil;
+  VALUE result;
 
   PUSH_TAG(PROT_NONE);
   if ((state = EXEC_TAG()) == 0) {
@@ -3292,7 +3292,7 @@ eval_body(ensure, VALUE)
 }
 
 
-eval_body(dot, VALUE)
+eval_node(dot, VALUE)
 {
   VALUE beg = rb_eval(self, node->nd_beg);
   VALUE end = rb_eval(self, node->nd_end);
@@ -3300,7 +3300,7 @@ eval_body(dot, VALUE)
 }
 
 
-eval_body(flip2, VALUE)
+eval_node(flip2, VALUE)
 {
   VALUE *flip = rb_svar(node->nd_cnt);
   if (!flip) rb_bug("unexpected local variable");
@@ -3315,7 +3315,7 @@ eval_body(flip2, VALUE)
 }
 
 
-eval_body(flip3, VALUE)
+eval_node(flip3, VALUE)
 {
   VALUE *flip = rb_svar(node->nd_cnt);
   if (!flip) rb_bug("unexpected local variable");
@@ -3327,7 +3327,7 @@ eval_body(flip3, VALUE)
 }
 
 
-eval_body(attrasgn, VALUE)
+eval_node(attrasgn, VALUE)
 {
   VALUE recv;
   int argc; VALUE *argv; /* used in SETUP_ARGS */
@@ -3353,7 +3353,7 @@ eval_body(attrasgn, VALUE)
 }
 
 
-eval_body(call, VALUE)
+eval_node(call, VALUE)
 {
   VALUE recv;
   int argc; VALUE *argv; /* used in SETUP_ARGS */
@@ -3370,7 +3370,7 @@ eval_body(call, VALUE)
 }
 
 
-eval_body(fcall, VALUE)
+eval_node(fcall, VALUE)
 {
   int argc; VALUE *argv; /* used in SETUP_ARGS */
   TMP_PROTECT;
@@ -3385,7 +3385,7 @@ eval_body(fcall, VALUE)
 }
 
 
-eval_body(super, VALUE)
+eval_node(super, VALUE)
 {
   int argc; VALUE *argv; /* used in SETUP_ARGS */
   TMP_PROTECT;
@@ -3430,12 +3430,12 @@ eval_body(super, VALUE)
 }
 
 
-eval_body(scope, VALUE)
+eval_node_volatile(scope, VALUE)
 {
   int state;
-  volatile VALUE result = Qnil;
+  VALUE result;
   struct FRAME frame;
-  NODE *saved_cref = 0;
+  NODE * volatile saved_cref = 0;
 
   frame = *ruby_frame;
   frame.tmp = ruby_frame;
@@ -3470,7 +3470,7 @@ eval_body(scope, VALUE)
   return result;
 }
 
-eval_body(op_asgn1, VALUE)
+eval_node(op_asgn1, VALUE)
 {
   int argc; VALUE *argv; /* used in SETUP_ARGS */
   VALUE recv, val, tmp;
@@ -3500,7 +3500,7 @@ eval_body(op_asgn1, VALUE)
 }
 
 
-eval_body(op_asgn2, VALUE)
+eval_node(op_asgn2, VALUE)
 {
   ID id = node->nd_next->nd_vid;
   VALUE recv, val, tmp;
@@ -3526,7 +3526,7 @@ eval_body(op_asgn2, VALUE)
 }
 
 
-eval_body(hash, VALUE)
+eval_node(hash, VALUE)
 {
   NODE *list;
   VALUE hash = rb_hash_new();
@@ -3546,7 +3546,7 @@ eval_body(hash, VALUE)
 }
 
 
-eval_body(array, VALUE)
+eval_node(array, VALUE)
 {
   VALUE ary;
   long i;
@@ -3561,7 +3561,7 @@ eval_body(array, VALUE)
 }
 
 
-eval_body(slit, VALUE)
+eval_node(slit, VALUE)
 {
   VALUE str, str2;
   NODE *list = node->nd_next;
@@ -3584,12 +3584,15 @@ eval_body(slit, VALUE)
   }
   switch (nd_type(node)) {
     case NODE_DREGX:
-      return rb_reg_new(RSTRING(str)->ptr, RSTRING(str)->len,
+      str2 = rb_reg_new(RSTRING(str)->ptr, RSTRING(str)->len,
 			  node->nd_cflag);
+      RB_GC_GUARD(str);  /* prevent tail call optimization here */
+      return str2;
     case NODE_DREGX_ONCE:	/* regexp expand once */
       str2 = rb_reg_new(RSTRING(str)->ptr, RSTRING(str)->len,
 			  node->nd_cflag);
       nd_set_type(node, NODE_LIT);
+      RB_GC_GUARD(str);  /* ensure str is not GC'd in rb_reg_new */
       return node->nd_lit = str2;
     case NODE_LIT:
       /* other thread may replace NODE_DREGX_ONCE to NODE_LIT */
@@ -3603,7 +3606,7 @@ eval_body(slit, VALUE)
 }
 
         
-eval_body(defn, void)
+eval_node(defn, void)
 {
   NODE *body,  *defn;
   VALUE origin = 0;
@@ -3649,7 +3652,7 @@ eval_body(defn, void)
 }
 
 
-eval_body(defs, void)
+eval_node(defs, void)
 {
   VALUE recv = rb_eval(self, node->nd_recv);
   VALUE klass;
@@ -3683,7 +3686,7 @@ eval_body(defs, void)
 }
 
 
-eval_body(class, VALUE)
+eval_node(class, VALUE)
 {
     VALUE super, klass, tmp, cbase;
     ID cname;
@@ -3739,7 +3742,7 @@ eval_body(class, VALUE)
 }
 
 
-eval_body(module, VALUE)
+eval_node(module, VALUE)
 {
   VALUE module, cbase;
   ID cname;
@@ -3773,7 +3776,7 @@ eval_body(module, VALUE)
 }
 
 
-eval_body(sclass, VALUE)
+eval_node(sclass, VALUE)
 {
   VALUE klass, result;
 
@@ -3795,7 +3798,7 @@ eval_body(sclass, VALUE)
 }
 
 
-eval_body(defined, VALUE)
+eval_node(defined, VALUE)
 {
     char buf[20];
     const char *desc = is_defined(self, node->nd_head, buf);
@@ -3829,7 +3832,7 @@ eval_cdecl(self, node, result)
 static VALUE
 rb_eval(self, node)
   VALUE self;
-  NODE *node;
+  NODE * node;
 {
   VALUE result;
 
@@ -4298,16 +4301,15 @@ again:
   return result;
 }
 
-
 static VALUE
 module_setup(module, n)
     VALUE module;
-    NODE *n;
+    NODE * volatile n;
 {
-    NODE * volatile node = n->nd_body;
+    NODE *node = n->nd_body;
     int state;
     struct FRAME frame;
-    VALUE result = Qnil;	/* OK */
+    VALUE result;
     TMP_PROTECT;
 
     frame = *ruby_frame;
@@ -4698,16 +4700,16 @@ rb_iter_break()
     break_jump(Qnil);
 }
 
-NORETURN(static void rb_longjmp _((int, VALUE)));
+NORETURN(static void rb_longjmp _((volatile int, volatile VALUE)));
 static VALUE make_backtrace _((void));
 
 static void
 rb_longjmp(tag, mesg)
-    int tag;
-    VALUE mesg;
+    volatile int tag;
+    volatile VALUE mesg;
 {
     VALUE at;
-    rb_thread_t th = curr_thread;
+    volatile rb_thread_t th = curr_thread;
 
     if (rb_thread_set_raised(th)) {
 	ruby_errinfo = exception_error;
@@ -5064,19 +5066,21 @@ rb_need_block()
 
 static VALUE
 rb_yield_0(val, self, klass, flags, avalue)
-    VALUE val, self, klass;	/* OK */
-    int flags, avalue;
+    volatile VALUE val, self;
+    VALUE klass;
+    int flags;
+    volatile int avalue;
 {
-    NODE *node;
+    NODE *volatile node;
     volatile VALUE result = Qnil;
     volatile VALUE old_cref;
     volatile VALUE old_wrapper;
     struct BLOCK * volatile block;
     struct SCOPE * volatile old_scope;
-    int old_vmode;
+    volatile int old_vmode;
     struct FRAME frame;
     NODE *cnode = ruby_current_node;
-    int lambda = flags & YIELD_LAMBDA_CALL;
+    volatile int lambda = flags & YIELD_LAMBDA_CALL;
     int state;
 
     rb_need_block();
@@ -5490,11 +5494,12 @@ assign(self, lhs, val, pcall)
 
 VALUE
 rb_iterate(it_proc, data1, bl_proc, data2)
-    VALUE (*it_proc) _((VALUE)), (*bl_proc)(ANYARGS);
-    VALUE data1, data2;
+    VALUE (* volatile it_proc) _((VALUE)), (*bl_proc)(ANYARGS);
+    volatile VALUE data1;
+    VALUE data2;
 {
     int state;
-    volatile VALUE retval = Qnil;
+    VALUE retval = Qnil;
     NODE *node = NEW_IFUNC(bl_proc, data2);
     VALUE self = ruby_top_self;
 
@@ -5518,12 +5523,7 @@ rb_iterate(it_proc, data1, bl_proc, data2)
     POP_BLOCK();
     POP_TAG();
 
-    switch (state) {
-      case 0:
-	break;
-      default:
-	JUMP_TAG(state);
-    }
+    if (state) JUMP_TAG(state);
     return retval;
 }
 
@@ -5555,16 +5555,17 @@ handle_rescue(self, node)
 
 VALUE
 #ifdef HAVE_STDARG_PROTOTYPES
-rb_rescue2(VALUE (*b_proc)(ANYARGS), VALUE data1, VALUE (*r_proc)(ANYARGS), VALUE data2, ...)
+rb_rescue2(VALUE (* volatile b_proc)(ANYARGS), volatile VALUE data1, 
+           VALUE (* volatile r_proc)(ANYARGS), volatile VALUE data2, ...)
 #else
 rb_rescue2(b_proc, data1, r_proc, data2, va_alist)
-    VALUE (*b_proc)(ANYARGS), (*r_proc)(ANYARGS);
-    VALUE data1, data2;
+    VALUE (* volatile b_proc)(ANYARGS), (* volatile r_proc)(ANYARGS);
+    volatile VALUE data1, data2;
     va_dcl
 #endif
 {
     int state;
-    volatile VALUE result;
+    VALUE result;
     volatile VALUE e_info = ruby_errinfo;
     volatile int handle = Qfalse;
     VALUE eclass;
@@ -5623,9 +5624,9 @@ VALUE
 rb_protect(proc, data, state)
     VALUE (*proc) _((VALUE));
     VALUE data;
-    int *state;
+    int * volatile state;
 {
-    VALUE result = Qnil;	/* OK */
+    VALUE result;
     int status;
 
     PUSH_TAG(PROT_NONE);
@@ -5638,22 +5639,18 @@ rb_protect(proc, data, state)
     if (state) {
 	*state = status;
     }
-    if (status != 0) {
-	return Qnil;
-    }
-
-    return result;
+    return status ? Qnil : result;
 }
 
 VALUE
 rb_ensure(b_proc, data1, e_proc, data2)
     VALUE (*b_proc)();
     VALUE data1;
-    VALUE (*e_proc)();
-    VALUE data2;
+    VALUE (* volatile e_proc)();
+    volatile VALUE data2;
 {
     int state;
-    volatile VALUE result = Qnil;
+    VALUE result;
     VALUE retval;
 
     PUSH_TAG(PROT_NONE);
@@ -5661,7 +5658,7 @@ rb_ensure(b_proc, data1, e_proc, data2)
 	result = (*b_proc)(data1);
     }
     POP_TAG();
-    retval = prot_tag ? prot_tag->retval : Qnil;	/* save retval */
+    if (prot_tag) retval = prot_tag->retval;  /* save retval */
     if (!thread_no_ensure()) {
 	(*e_proc)(data2);
     }
@@ -5675,7 +5672,7 @@ rb_with_disable_interrupt(proc, data)
     VALUE (*proc)();
     VALUE data;
 {
-    VALUE result = Qnil;	/* OK */
+    VALUE result;
     int status;
 
     DEFER_INTS;
@@ -5927,16 +5924,16 @@ call_cfunc(func, recv, len, argc, argv)
 
 static VALUE
 rb_call0(klass, recv, id, oid, argc, argv, body, flags)
-    VALUE klass, recv;
-    ID    id;
+    volatile VALUE klass, recv;
+    volatile ID    id;
     ID    oid;
-    int argc;			/* OK */
-    VALUE *argv;		/* OK */
-    NODE * volatile body;
+    int argc;
+    VALUE *argv;
+    NODE *volatile body;
     int flags;
 {
     NODE *b2;		/* OK */
-    volatile VALUE result = Qnil;
+    VALUE result;
     int itr;
     static int tick;
     TMP_PROTECT;
@@ -6053,7 +6050,7 @@ rb_call0(klass, recv, id, oid, argc, argv, body, flags)
 	{
 	    int state;
 	    VALUE *local_vars;	/* OK */
-	    NODE *saved_cref = 0;
+	    NODE * volatile saved_cref = 0;
 
 	    PUSH_SCOPE();
 	    if (body->nd_rval) {
@@ -6166,6 +6163,8 @@ rb_call0(klass, recv, id, oid, argc, argv, body, flags)
 		result = prot_tag->retval;
 		state = 0;
 	    }
+            else
+                result = Qnil;
 	    POP_TAG();
 	    if (event_hooks) {
 		EXEC_EVENT_HOOK(RUBY_EVENT_RETURN, body, recv, id, klass);
@@ -6196,7 +6195,6 @@ rb_call0(klass, recv, id, oid, argc, argv, body, flags)
 
       default:
 	unknown_node(body);
-	break;
     }
     POP_FRAME();
     POP_ITER();
@@ -6364,7 +6362,7 @@ rb_funcall_rescue(recv, mid, n, va_alist)
     va_dcl
 #endif
 {
-    VALUE result = Qnil;	/* OK */
+    VALUE result;
     int status;
     va_list ar;
 
@@ -6574,12 +6572,13 @@ compile(src, file, line)
 
 static VALUE
 eval(self, src, scope, file, line)
-    VALUE self, src, scope;
-    const char *file;
+    VALUE self, src;
+    volatile VALUE scope;
+    const char * volatile file;
     int line;
 {
     struct BLOCK *data = NULL;
-    volatile VALUE result = Qnil;
+    VALUE result;
     struct SCOPE * volatile old_scope;
     struct BLOCK * volatile old_block;
     struct RVarmap * volatile old_dyna_vars;
@@ -6587,7 +6586,7 @@ eval(self, src, scope, file, line)
     int volatile old_vmode;
     volatile VALUE old_wrapper;
     struct FRAME frame;
-    NODE *nodesave = ruby_current_node;
+    NODE * volatile nodesave = ruby_current_node;
     volatile int iter = ruby_frame->iter;
     volatile int safe = ruby_safe_level;
     int state;
@@ -6652,7 +6651,7 @@ eval(self, src, scope, file, line)
 	    compile_error(0);
 	}
 	if (!NIL_P(result)) ruby_errinfo = result;
-	result = eval_node(self, node);
+	result = eval_tree(self, node);
     }
     POP_TAG();
     POP_CLASS();
@@ -6778,12 +6777,13 @@ rb_f_eval(argc, argv, self)
 static VALUE
 exec_under(func, under, cbase, args)
     VALUE (*func)();
-    VALUE under, cbase;
+    VALUE under;
+    volatile VALUE cbase;
     void *args;
 {
-    VALUE val = Qnil;		/* OK */
+    VALUE val;
     int state;
-    int mode;
+    volatile int mode;
     struct FRAME *f = ruby_frame;
 
     PUSH_CLASS(under);
@@ -6987,11 +6987,11 @@ rb_load(fname, wrap)
     VALUE tmp;
     int state;
     volatile int prohibit_int = rb_prohibit_interrupt;
-    volatile ID last_func;
+    ID last_func;
     volatile VALUE wrapper = ruby_wrapper;
-    volatile VALUE self = ruby_top_self;
-    NODE *volatile last_node;
-    NODE *saved_cref = ruby_cref;
+    VALUE self = ruby_top_self;
+    NODE *last_node;
+    NODE *volatile saved_cref = ruby_cref;
 
     if (wrap && ruby_safe_level >= 4) {
 	StringValue(fname);
@@ -7040,7 +7040,7 @@ rb_load(fname, wrap)
     ruby_current_node = 0;
     if (state == 0) {
 	NODE *node;
-	volatile int critical;
+        int critical;
 
 	DEFER_INTS;
 	ruby_in_eval++;
@@ -7052,7 +7052,7 @@ rb_load(fname, wrap)
 	rb_thread_critical = critical;
 	ALLOW_INTS;
 	if (ruby_nerrs == 0) {
-	    eval_node(self, node);
+	    eval_tree(self, node);
 	}
     }
     ruby_frame->last_func = last_func;
@@ -7085,7 +7085,7 @@ void
 rb_load_protect(fname, wrap, state)
     VALUE fname;
     int wrap;
-    int *state;
+    int * volatile state;
 {
     int status;
 
@@ -7374,7 +7374,7 @@ rb_require_safe(fname, safe)
     VALUE fname;
     int safe;
 {
-    VALUE result = Qnil;
+    VALUE result;
     volatile VALUE errinfo = ruby_errinfo;
     int state;
     struct {
@@ -7425,7 +7425,8 @@ rb_require_safe(fname, safe)
 		rb_provide_feature(feature);
 		result = Qtrue;
 	    }
-	}
+	}else
+          result = Qnil;
     }
     POP_TAG();
     ruby_current_node = saved.node;
@@ -8093,7 +8094,7 @@ rb_f_at_exit()
 void
 rb_exec_end_proc()
 {
-    struct end_proc_data *link, *tmp;
+    struct end_proc_data *tmp, *volatile link;
     int status;
     volatile int safe = ruby_safe_level;
 
@@ -8738,8 +8739,9 @@ proc_invoke(proc, args, self, klass)
     int state;
     volatile int safe = ruby_safe_level;
     volatile VALUE old_wrapper = ruby_wrapper;
-    volatile int pcall, avalue = Qtrue;
-    volatile VALUE tmp = args;
+    volatile int pcall;
+    int avalue = Qtrue;
+    VALUE tmp = args;
 
     if (rb_block_given_p() && ruby_frame->last_func) {
 	if (klass != ruby_frame->last_class)
@@ -9038,15 +9040,15 @@ proc_binding(proc)
 
 static VALUE
 block_pass(self, node)
-    VALUE self;
-    NODE *node;
+    volatile VALUE self;
+    volatile NODE *node;
 {
-    VALUE proc = rb_eval(self, node->nd_body);	/* OK */
+    volatile VALUE proc = rb_eval(self, node->nd_body);
     VALUE b;
     struct BLOCK * volatile old_block;
     struct BLOCK _block;
     struct BLOCK *data;
-    volatile VALUE result = Qnil;
+    VALUE result;
     int state;
     volatile int orphan;
     volatile int safe = ruby_safe_level;
@@ -9093,20 +9095,24 @@ block_pass(self, node)
 
     PUSH_TAG(PROT_LOOP);
     state = EXEC_TAG();
-    if (state == 0) {
-      retry:
+    switch (state) {
+      case TAG_RETRY:
+        state = 0;
+      case 0:
 	proc_set_safe_level(proc);
 	if (safe > ruby_safe_level)
 	    ruby_safe_level = safe;
 	result = rb_eval(self, node->nd_iter);
-    }
-    else if (state == TAG_BREAK && TAG_DST()) {
-	result = prot_tag->retval;
-	state = 0;
-    }
-    else if (state == TAG_RETRY) {
-	state = 0;
-	goto retry;
+        break;
+      case TAG_BREAK:
+        result = Qnil;
+        if (TAG_DST()) {
+	  result = prot_tag->retval;
+	  state = 0;
+        }
+        break;
+      default:
+        result = Qnil;
     }
     POP_TAG();
     POP_ITER();
@@ -9123,7 +9129,6 @@ block_pass(self, node)
       default:
 	JUMP_TAG(state);
     }
-
     return result;
 }
 
@@ -9382,7 +9387,7 @@ method_call(argc, argv, method)
     VALUE *argv;
     VALUE method;
 {
-    VALUE result = Qnil;	/* OK */
+    VALUE result;
     struct METHOD *data;
     int safe;
 
@@ -9681,12 +9686,9 @@ static VALUE
 bmcall(args, method)
     VALUE args, method;
 {
-    volatile VALUE a;
-    VALUE ret;
-
-    a = svalue_to_avalue(args);
-    ret = method_call(RARRAY(a)->len, RARRAY(a)->ptr, method);
-    a = Qnil; /* prevent tail call */
+    VALUE a = svalue_to_avalue(args);
+    VALUE ret = method_call(RARRAY(a)->len, RARRAY(a)->ptr, method);
+    RB_GC_GUARD(a);  /* ensure a is not GC'd during method_call */
     return ret;
 }
 
@@ -10571,7 +10573,7 @@ static void
 rb_thread_save_context(th)
     rb_thread_t th;
 {
-    int len;
+    size_t len;
     static VALUE tval;
 
     len = ruby_stack_length(th->stk_start,&th->stk_pos);
@@ -10773,7 +10775,6 @@ rb_thread_restore_context(th, exit)
 
 #if HAVE_ALLOCA  /* use alloca to grow stack in O(1) time */
     VALUE v;
-    volatile VALUE *space;
 
     if (!th->stk_ptr) rb_bug("unsaved context");
 #  if !STACK_GROW_DIRECTION  /* unknown at compile time */
@@ -10781,13 +10782,15 @@ rb_thread_restore_context(th, exit)
 #  endif
 #  if STACK_GROW_DIRECTION <= 0
       pos -= th->stk_len;
-      if (&v > pos) space=ALLOCA_N(VALUE, &v-pos);
+      if (&v > pos) 
+        (volatile void *)ALLOCA_N(VALUE, &v-pos);
 #  endif
 #  if !STACK_GROW_DIRECTION
     }else
 #  endif
 #if STACK_GROW_DIRECTION >= 0  /* stack grows upward */
-      if (&v < pos + th->stk_len) space=ALLOCA_N(VALUE, pos+th->stk_len - &v);
+      if (&v < pos + th->stk_len) 
+        (volatile void *)ALLOCA_N(VALUE, pos+th->stk_len - &v);
 #  endif
 
 #else  /* recursive O(n/1024) if extending stack > 1024 VALUEs */
@@ -13162,7 +13165,7 @@ static VALUE
 rb_callcc(self)
     VALUE self;
 {
-    rb_thread_t th = prep4callcc();
+    volatile rb_thread_t th = prep4callcc();
     return THREAD_SAVE_CONTEXT(th) ?
       th->result
           :
@@ -13547,10 +13550,11 @@ Init_Thread()
 
 static VALUE
 rb_f_catch(dmy, tag)
-    VALUE dmy, tag;
+    VALUE dmy;
+    volatile VALUE tag;
 {
     int state;
-    VALUE val = Qnil;		/* OK */
+    VALUE val;
 
     tag = ID2SYM(rb_to_id(tag));
     PUSH_TAG(tag);

@@ -216,6 +216,7 @@ __defspfn("addi %0, r1, 0": "=r"(sp))
 #  elif defined  __i386__
 __defspfn("movl %%esp, %0": "=r"(sp))
 #  elif defined __x86_64__
+#warn ===> x86_64 inline assembler is known to crash -- change STACK_WIPE_SITES
 __defspfn("movq %%rsp, %0": "=r"(sp))
 #  elif __arm__
 __defspfn("mov %0, sp": "=r"(sp))
