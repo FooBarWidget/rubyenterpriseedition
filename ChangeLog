@@ -1,3 +1,9 @@
+Wed Feb 27 12:01:19 2009  Brent Roman  <brent@mbari.org>
+        
+        * rubysig.c:  added support for __anyPowerPC__
+        
+        * version.h:  bumped date
+
 Mon Feb 25 10:53:52 2008  Brent Roman  <brent@mbari.org>
 
 	* backported MBARI 8A patches still
