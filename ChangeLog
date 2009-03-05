@@ -1,3 +1,9 @@
+Wed Mar 4 12:01:19 2009  Brent Roman  <brent@mbari.org>
+        
+        * rubysig.h:  assume non-Apple gcc on PowerPC is not using -mregnames
+        
+        * version.h:  bumped date
+
 Wed Feb 27 12:01:19 2009  Brent Roman  <brent@mbari.org>
         
         * rubysig.c:  added support for __anyPowerPC__

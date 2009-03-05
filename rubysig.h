@@ -217,7 +217,11 @@ static inline VALUE *__sp(void) \
   return sp; \
 }
 #  ifdef __anyPowerPC__
+#   ifdef __APPLE__
 __defspfn("addi %0, r1, 0": "=r"(sp))
+#   else
+__defspfn("addi %0, 1, 0": "=r"(sp))
+#   endif
 #  elif defined  __i386__
 __defspfn("movl %%esp, %0": "=r"(sp))
 #  elif defined __x86_64__
