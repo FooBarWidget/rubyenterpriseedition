@@ -98,7 +98,7 @@ After compilation, install tcmalloc as follows:
 --------------------------
 sudo mkdir -p $PREFIX/lib
 sudo rm -f $PREFIX/lib/libtcmalloc_minimal*.so*
-sudo cp -pf .libs/libtcmalloc_minimal*.so* $PREFIX/lib/
+sudo cp -Rpf .libs/libtcmalloc_minimal*.so* $PREFIX/lib/
 --------------------------
 
 .MacOS X note
