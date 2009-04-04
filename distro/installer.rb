@@ -20,8 +20,11 @@ class Installer
 		@version = File.read("version.txt")
 		@auto_install_prefix = options[:prefix]
 		@destdir = options[:destdir]
-		@install_extra_gems = options[:extra]
+		@install_useful_gems = options[:install_useful_gems]
 		@use_tcmalloc = options[:tcmalloc]
+		if !options[:extra_configure_args].empty?
+			@extra_configure_args = options[:extra_configure_args].join(" ")
+		end
 		
 		if RUBY_PLATFORM =~ /darwin/
 			ENV['PATH'] = "#{ENV['PATH']}:/usr/local/mysql/bin"
@@ -187,7 +190,7 @@ private
 	end
 	
 	def configure_ruby
-		return configure_autoconf_package('source', 'Ruby Enterprise Edition')
+		return configure_autoconf_package('source', 'Ruby Enterprise Edition', @extra_configure_args)
 	end
 	
 	def compile_system_allocator
@@ -310,12 +313,11 @@ private
 		else
 			mysql_gem = "mysql"
 		end
-		
-		gem_names = ["passenger", "rake", "rails", "fastthread", "rack", mysql_gem, "sqlite3-ruby", "postgres"]
-		if @install_extra_gems
-			gem_names += ["rails --version 2.0.2", "rails --version 1.2.6",
-				"rails --version 1.1.6", "mongrel", "hpricot", "thin",
-				"rake", "haml", "rspec", "mongrel_cluster"]
+
+		gem_names = []
+		if @install_useful_gems
+			gem_names += ["passenger", "rake", "rails", "fastthread",
+			              "rack", mysql_gem, "sqlite3-ruby", "postgres"]
 		end
 		failed_gems = []
 		
@@ -553,25 +555,41 @@ private
 	end
 end
 
-options = { :tcmalloc => true }
+options = { :tcmalloc => true, :install_useful_gems => true, :extra_configure_args => [] }
 parser = OptionParser.new do |opts|
+	newline = "\n#{' ' * 37}"
+	
 	opts.banner = "Usage: installer [options]"
 	opts.separator("")
 	
 	opts.on("-a", "--auto PREFIX", String,
-	"Automatically install to directory PREFIX\n#{' ' * 37}without any user interaction") do |dir|
+	        "Configure Ruby with prefix PREFIX and#{newline}" <<
+	        "install it without any user interaction.") do |dir|
 		options[:prefix] = dir
 	end
-	opts.on("--destdir DIR", String) do |dir|
+	opts.on("--destdir DIR", String,
+	        "Install everthing under the given#{newline}" <<
+	        "destination directory. Used when building#{newline}" <<
+	        "packages for Ruby Enterprise Edition.") do |dir|
 		options[:destdir] = dir
 	end
-	opts.on("--extra", "Install extra gems") do
-		options[:extra] = true
+	opts.on("-c", "--configure-arg ARG", String,
+	        "Pass an extra argument to the Ruby#{newline}" <<
+	        "configure script. You can specify this#{newline}" <<
+	        "option multiple times to pass multiple#{newline}" <<
+	        "arguments.") do |arg|
+		options[:extra_configure_args] << arg
 	end
-	opts.on("--no-tcmalloc", "Do not install tcmalloc support") do
+	opts.on("--dont-install-useful-gems",
+	        "Do not install a few useful gems that are#{newline}" <<
+	        "normally installed as well: passenger,#{newline}" <<
+	        "rails, mysql, etc.") do
+		options[:install_useful_gems] = false
+	end
+	opts.on("--no-tcmalloc", "Do not install tcmalloc support.") do
 		options[:tcmalloc] = false
 	end
-	opts.on("-h", "--help", "Show this message") do
+	opts.on("-h", "--help", "Show this message.") do
 		puts opts
 		exit
 	end

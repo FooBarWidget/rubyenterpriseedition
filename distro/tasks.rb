@@ -21,7 +21,7 @@ task :package do
 	sh "rm -rf #{DISTDIR}"
 end
 
-desc "Test the installer script"
+desc "Test the installer script. Pass extra arguments to the installer with ARGS."
 task :test_installer do
 	distdir = "/tmp/r8ee-test"
 	create_distdir(distdir)
