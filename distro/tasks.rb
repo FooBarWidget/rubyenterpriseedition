@@ -50,7 +50,7 @@ end
 
 desc "Generate the documentation HTML"
 file 'distro/documentation.html' => 'distro/documentation.txt' do
-	sh "asciidoc -a toc -a numbered -a toclevels=2 -a icons distro/documentation.txt"
+	sh "asciidoc -a toc -a numbered -a toclevels=3 -a icons distro/documentation.txt"
 end
 
 # Check whether the specified command is in $PATH, and return its

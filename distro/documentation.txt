@@ -77,7 +77,23 @@ tar xzvf ruby-enterprise-x.x.x.tar.gz
 
 A directory called 'ruby-enterprise-x.x.x' will now appear.
 
-==== Step 2: Install tcmalloc
+==== Step 2: Decide the prefix you want to install REE to
+
+Please decide on a prefix to install REE to, and put this directory name into
+the `PREFIX` environment variable. We'll need this value later in these
+instructions.
+
+For example, if you want to install REE into /opt/ruby-enterprise, then run:
+
+-------------------------------------
+PREFIX=/opt/ruby-enterprise
+-------------------------------------
+
+Please note that the rest of this document assumes that REE is installed into
+'/opt/ruby-enterprise'. If you installed REE into a different directory then just
+replace '/opt/ruby-enterprise' with whatever the real prefix is.
+
+==== Step 3: Install tcmalloc
 Tcmalloc is a memory allocator which is usually more efficient than the
 platform's native memory allocator. REE doesn't require tcmalloc, but it will
 work better if tcmalloc is installed.
@@ -90,8 +106,7 @@ cd ruby-enterprise-x.x.x/source/vendor/google-perftools-*
 make libtcmalloc_minimal.la
 --------------------------
 
-where '$PREFIX' is the prefix you want to install tcmalloc to. If compilation
-fails, then skip to step 3. REE will work fine without tcmalloc.
+If compilation fails, then skip to step 3. REE will work fine without tcmalloc.
 
 After compilation, install tcmalloc as follows:
 
@@ -110,7 +125,7 @@ NOTE: The reason why we don't instruct you to type 'make' and 'make install'
       platforms. The above instructions are a little bit more complex, but they
       work on all platforms where tcmalloc is supported.
 
-==== Step 3: Configure REE
+==== Step 4: Configure REE
 
 Change the current working directory to 'ruby-enterprise-x.x.x/source'. If
 you were previously in the google-perftools directory, then type:
@@ -125,18 +140,16 @@ Run the configure script:
 ./configure --prefix=$PREFIX
 --------------------------
 
-where '$PREFIX' is the prefix you want to install tcmalloc to.
+==== Step 5: Compiling and installing the system_allocator library (MacOS X only)
 
-==== Step 4: Compiling and installing the system_allocator library (MacOS X only)
-
-If you are on MacOS X, then compile and install the 'sytem_allocator' library:
+If you are on MacOS X, then compile and install the 'system_allocator' library:
 
 --------------------------
 gcc -dynamiclib system_allocator.c -install_name @rpath/libsystem_allocator.dylib -o libsystem_allocator.dylib
-sudo install source/libsystem_allocator.dylib $PREFIX/lib/
+sudo install libsystem_allocator.dylib $PREFIX/lib/
 --------------------------
 
-==== Step 5: compiling and installing REE
+==== Step 6: compiling and installing REE
 
 Open 'Makefile'. Search for a line which starts with:
 
