@@ -48,6 +48,11 @@ task 'package:debian' => :fakeroot do
 	sh "fakeroot dpkg -b fakeroot ruby-enterprise_#{VENDOR_RUBY_VERSION}-#{REE_VERSION}_i386.deb"
 end
 
+desc "Generate the documentation HTML"
+file 'distro/documentation.html' => 'distro/documentation.txt' do
+	sh "asciidoc -a toc -a numbered -a toclevels=2 -a icons distro/documentation.txt"
+end
+
 # Check whether the specified command is in $PATH, and return its
 # absolute filename. Returns nil if the command is not found.
 #

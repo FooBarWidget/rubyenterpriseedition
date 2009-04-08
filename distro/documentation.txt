@@ -536,3 +536,18 @@ signal to a Phusion Passenger backend process, it will print the backtrace of
 all threads to the Apache error log. This feature is also documented in the
 Phusion Passenger users guide.
 
+
+== RubyCocoa compatibility and `--enable-shared`
+
+In order to use RubyCocoa, the Ruby interpreter must be compiled with
+`--enable-shared`. By default, Ruby Enterprise Edition's interpreter is not compiled
+with `--enable-shared`. You can compile the Ruby Enterprise Edition interpreter
+with this flag by passing `-c --enable-shared` to its installer, like this:
+
+---------------------------------------------------------
+./ruby-enterprise-X.X.X/installer -c --enable-shared
+---------------------------------------------------------
+
+Please note that enabling `--enable-shared` will make the Ruby interpreter about
+20% slower. It is for this reason that we don't recommend enabling `--enable-shared`
+on server environments, although it's fine for desktop environments.
