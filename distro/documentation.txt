@@ -551,3 +551,19 @@ with this flag by passing `-c --enable-shared` to its installer, like this:
 Please note that enabling `--enable-shared` will make the Ruby interpreter about
 20% slower. It is for this reason that we don't recommend enabling `--enable-shared`
 on server environments, although it's fine for desktop environments.
+
+== Tcl/Tk compatibility and `--enable-pthread`
+
+In order to use Tcl/Tk with threading support, the Ruby interpreter must be compiled
+with `--enable-pthread`. By default, Ruby Enterprise Edition's interpreter is not
+compiled with `--enable-pthread`. You can compile the Ruby Enterprise Edition
+interpreter with this flag by passing `-c --enable-pthread` to its installer,
+like this:
+
+---------------------------------------------------------
+./ruby-enterprise-X.X.X/installer -c --enable-pthread
+---------------------------------------------------------
+
+Please note that enabling `--enable-pthread` will make the Ruby interpreter about
+50% slower. It is for this reason that we don't recommend enabling `--enable-shared`
+on server environments, although it's fine for desktop environments.
