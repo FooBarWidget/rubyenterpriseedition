@@ -8,11 +8,13 @@ Ruby Enterprise Edition (REE) is a server-oriented distribution of the official 
 - The ability to tweak garbage collector settings for maximum server performance.
 - The ability to inspect the garbage collector's state and the object heap state, for debugging purposes.
 - The ability to obtain backtraces for all running threads, making it easier for one to debug multithreaded applications.
+- Performance enhancements for Sparc machines.
 
 Some of these features are gathered from third party Ruby patches:
 link:http://railsbench.rubyforge.org/[RailsBench],
 http://rubyforge.org/tracker/download.php/426/1700/11497/2087/ruby-track-alloc.patch[Sylvain Joyeux's object allocation patch],
-link:http://ph7spot.com/articles/caller_for_all_threads[caller_for_all_threads]
+link:http://ph7spot.com/articles/caller_for_all_threads[caller_for_all_threads],
+Darryl Gove's and Miriam Blatt's link:http://blogs.sun.com/d/entry/ruby_performance_gains_on_sparc[Sparc optimization patches].
 
 
 === Installation via Debian package or source tarball
