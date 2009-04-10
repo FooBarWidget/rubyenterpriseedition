@@ -95,14 +95,7 @@ rb_bf_mark_table_prepare()
 static void
 rb_bf_mark_table_finalize()
 {
-	int i;
-
-	if (pointer_set_get_size(mark_table) > 0) {
-		pointer_set_reset(mark_table);
-	}
-	for (i = 0; i < heaps_used; i++) {
-		memset(heaps[i].marks, 0, heaps[i].marks_size * sizeof(int));
-	}
+	/* Do nothing. */
 }
 
 static inline void

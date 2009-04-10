@@ -881,7 +881,6 @@ rb_newobj()
     obj = (VALUE)freelist;
     freelist = freelist->as.free.next;
     MEMZERO((void*)obj, RVALUE, 1);
-    RANY(obj)->as.free.flags = FL_ALLOCATED;
 #ifdef GC_DEBUG
     RANY(obj)->file = ruby_sourcefile;
     RANY(obj)->line = ruby_sourceline;
@@ -1077,7 +1076,7 @@ gc_mark_all()
 	p = heap->slot; pend = heap->slotlimit;
 	while (p < pend) {
 	    if (rb_mark_table_heap_contains(heap, p) &&
-		(p->as.basic.flags != FL_ALLOCATED)) {
+		!(p->as.basic.flags & FL_DEFER_FINALIZE)) {
 		gc_mark_children((VALUE)p, 0);
 	    }
 	    p++;
@@ -1514,7 +1513,7 @@ finalize_list(p)
 	 * The latter is to prevent the unnecessary marking of memory pages as dirty,
 	 * which can destroy copy-on-write semantics.
 	 */
-	if (!FL_TEST(p, FL_SINGLETON) && p->as.free.flags != 0) {
+	if (!FL_TEST(p, FL_SINGLETON)) {
 	    p->as.free.flags = 0;
 	    p->as.free.next = freelist;
 	    rb_mark_table_remove(p);
@@ -1652,6 +1651,7 @@ gc_sweep()
 		}
 		if (need_call_final && FL_TEST(p, FL_FINALIZE)) {
 		    /* This object has a finalizer, so don't free it right now, but do it later. */
+		    p->as.free.flags = FL_DEFER_FINALIZE;
 		    rb_mark_table_heap_add(heap, p); /* remain marked */
 		    p->as.free.next = final_list;
 		    final_list = p;
@@ -1674,7 +1674,7 @@ gc_sweep()
 		}
 		n++;
 	    }
-	    else if (RBASIC(p)->flags == FL_ALLOCATED) {
+	    else if (RBASIC(p)->flags & FL_DEFER_FINALIZE) {
 		/* objects to be finalized */
 		/* do nothing remain marked */
 	    }
@@ -1691,6 +1691,7 @@ gc_sweep()
 	    RVALUE *pp;
 
 	    heaps[i].limit = 0;
+	    heaps[i].slotlimit = heaps[i].slot;
 	    for (pp = final_list; pp != final; pp = pp->as.free.next) {
 		pp->as.free.flags |= FL_SINGLETON; /* freeing page mark */
 	    }
