@@ -374,14 +374,30 @@ The next time Ruby needs to allocate a new heap, that heap will have
 	`RUBY_HEAP_SLOTS_GROWTH_FACTOR` parameters. The default value is '4096'.
 
 The best settings varies from application to application. You should try
-experimenting with the values. 37signals uses the following settings in
-production:
+experimenting with the values.
+
+link:http://www.37signals.com[37signals] uses the following settings in production:
 
 ----------------------------------
 RUBY_HEAP_MIN_SLOTS=600000
 RUBY_GC_MALLOC_LIMIT=59000000
 RUBY_HEAP_FREE_MIN=100000
 ----------------------------------
+
+link:http://www.twitter.com[Twitter] uses the following settings in production:
+
+----------------------------------
+RUBY_HEAP_MIN_SLOTS=500000
+RUBY_HEAP_SLOTS_INCREMENT=250000
+RUBY_HEAP_SLOTS_GROWTH_FACTOR=1
+RUBY_GC_MALLOC_LIMIT=50000000
+----------------------------------
+
+Twitter's settings mean:
+
+ * Start with enough memory to hold the application (Ruby's default is very low, lower than what a Rails application typically needs).
+ * Increase it linearly if you need more (Ruby's default is exponential increase).
+ * Only garbage-collect every 50 million `malloc` calls (Ruby's default is 6x smaller).
 
 == Garbage collector statistics
 One can inspect various garbage collector statistics by calling certain methods.
