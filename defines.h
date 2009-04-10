@@ -237,12 +237,18 @@ flush_register_windows(void)
 	;
 }
 #  define FLUSH_REGISTER_WINDOWS flush_register_windows()
+#  define EXEC_FLUSH_REGISTER_WINDOWS ((void)0)
+#  define SWITCH_FLUSH_REGISTER_WINDOWS ((void)0)
 #elif defined(__ia64)
 void *rb_ia64_bsp(void);
 void rb_ia64_flushrs(void);
 #  define FLUSH_REGISTER_WINDOWS rb_ia64_flushrs()
+#  define EXEC_FLUSH_REGISTER_WINDOWS FLUSH_REGISTER_WINDOWS
+#  define SWITCH_FLUSH_REGISTER_WINDOWS FLUSH_REGISTER_WINDOWS
 #else
 #  define FLUSH_REGISTER_WINDOWS ((void)0)
+#  define EXEC_FLUSH_REGISTER_WINDOWS FLUSH_REGISTER_WINDOWS
+#  define SWITCH_FLUSH_REGISTER_WINDOWS FLUSH_REGISTER_WINDOWS
 #endif
 
 #if defined(DOSISH)
