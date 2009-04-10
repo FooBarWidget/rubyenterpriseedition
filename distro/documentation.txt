@@ -395,9 +395,14 @@ RUBY_GC_MALLOC_LIMIT=50000000
 
 Twitter's settings mean:
 
- * Start with enough memory to hold the application (Ruby's default is very low, lower than what a Rails application typically needs).
+ * Start with enough memory to hold the application (Ruby's default is very low,
+   lower than what a Rails application typically needs).
  * Increase it linearly if you need more (Ruby's default is exponential increase).
  * Only garbage-collect every 50 million `malloc` calls (Ruby's default is 6x smaller).
+
+Twitter link:http://blog.evanweaver.com/articles/2009/04/09/ruby-gc-tuning/[claims]
+that these settings give them about 20% to 40% average performance improvement,
+at the cost of slightly higher peak memory usage.
 
 == Garbage collector statistics
 One can inspect various garbage collector statistics by calling certain methods.
