@@ -1,7 +1,11 @@
-REE_VERSION = "20090201"
 VENDOR_RUBY_VERSION = begin
 	data = File.read("version.h")
 	data =~ /RUBY_VERSION "(.*)"/
+	$1
+end
+REE_VERSION = begin
+	data = File.read("version.c")
+	data =~ /REE_VERSION "(.*)"/
 	$1
 end
 DISTDIR = "ruby-enterprise-#{VENDOR_RUBY_VERSION}-#{REE_VERSION}"

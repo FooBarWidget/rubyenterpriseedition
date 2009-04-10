@@ -20,6 +20,8 @@ const char ruby_release_date[] = RUBY_RELEASE_DATE;
 const char ruby_platform[] = RUBY_PLATFORM;
 const int ruby_patchlevel = RUBY_PATCHLEVEL;
 
+#define REE_VERSION "20090411"
+
 void
 Init_version()
 {
@@ -44,6 +46,7 @@ void
 ruby_show_version()
 {
     printf("ruby %s (%s patchlevel %d) [%s]\n", RUBY_VERSION, RUBY_RELEASE_DATE, RUBY_PATCHLEVEL, RUBY_PLATFORM);
+    printf("Ruby Enterprise Edition " REE_VERSION "\n");
     fflush(stdout);
 }
 
