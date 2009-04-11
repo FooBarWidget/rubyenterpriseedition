@@ -202,7 +202,7 @@ private
 				# tcmalloc requires a special library. See system_allocator.c
 				# for more information.
 				ENV['DYLD_LIBRARY_PATH'] = "#{ROOT}/source:#{ENV['DYLD_LIBRARY_PATH']}"
-				return sh("#{PlatformInfo::CC} -dynamiclib system_allocator.c -install_name @rpath/libsystem_allocator.dylib -o libsystem_allocator.dylib")
+				return sh("#{PlatformInfo::CC} #{ENV['CFLAGS']} #{ENV['LDFLAGS']} -dynamiclib system_allocator.c -install_name @rpath/libsystem_allocator.dylib -o libsystem_allocator.dylib")
 			end
 		else
 			return true

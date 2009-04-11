@@ -106,7 +106,7 @@ module Dependencies # :nodoc: all
 					f.write("#include <zlib.h>")
 				end
 				Dir.chdir('/tmp') do
-					if system("(#{PlatformInfo::CC || 'gcc'} -c r8ee-check.c) >/dev/null 2>/dev/null")
+					if system("(#{PlatformInfo::CC || 'gcc'} #{ENV['CFLAGS']} -c r8ee-check.c) >/dev/null 2>/dev/null")
 						result.found
 					else
 						result.not_found
@@ -136,7 +136,7 @@ module Dependencies # :nodoc: all
 					f.write("#include <openssl/ssl.h>")
 				end
 				Dir.chdir('/tmp') do
-					if system("(#{PlatformInfo::CC || 'gcc'} -c r8ee-check.c) >/dev/null 2>/dev/null")
+					if system("(#{PlatformInfo::CC || 'gcc'} #{ENV['CFLAGS']} -c r8ee-check.c) >/dev/null 2>/dev/null")
 						result.found
 					else
 						result.not_found
@@ -168,7 +168,7 @@ module Dependencies # :nodoc: all
 					f.puts("#include <readline/readline.h>")
 				end
 				Dir.chdir('/tmp') do
-					if system("(#{PlatformInfo::CC || 'gcc'} -c r8ee-check.c) >/dev/null 2>/dev/null")
+					if system("(#{PlatformInfo::CC || 'gcc'} #{ENV['CFLAGS']} -c r8ee-check.c) >/dev/null 2>/dev/null")
 						result.found
 					else
 						result.not_found

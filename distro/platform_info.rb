@@ -201,7 +201,7 @@ private
 	end
 	
 	def self.determine_c_compiler
-		return find_command('gcc') || find_command('cc')
+		return ENV['CC'] || find_command('gcc') || find_command('cc')
 	end
 
 public
