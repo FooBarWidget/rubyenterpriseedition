@@ -222,7 +222,13 @@ private
 				end
 			end
 			
-			prelibs = "-Wl,-rpath,#{@prefix}/lib -L#{@destdir}#{@prefix}/lib"
+			prelibs = "-Wl,"
+			if PlatformInfo.solaris_ld?
+				prelibs << "-R#{@prefix}/lib"
+			else
+				prelibs << "-rpath,#{@prefix}/lib"
+			end
+			prelibs << " -L#{@destdir}#{@prefix}/lib"
 			if tcmalloc_supported?
 				prelibs << " -ltcmalloc_minimal "
 			end

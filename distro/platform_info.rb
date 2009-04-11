@@ -203,6 +203,12 @@ private
 	def self.determine_c_compiler
 		return ENV['CC'] || find_command('gcc') || find_command('cc')
 	end
+	
+	# Returns true if the Solaris version of ld is in use.
+	def self.solaris_ld?
+		ld_version = `ld -V 2>&1`
+		return !!ld_version.index("Solaris")
+	end
 
 public
 	# Check whether the specified command is in $PATH, and return its
