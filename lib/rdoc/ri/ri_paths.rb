@@ -44,7 +44,7 @@ module RI
 
     begin
       require 'rubygems'
-      GEMDIRS = Dir["#{Gem.path}/doc/*/ri"]
+      GEMDIRS = Gem.path.to_a.map { |p| Dir["#{p}/doc/*/ri"] }.flatten
       GEMDIRS.each { |path| RI::Paths::PATH << path }
     rescue LoadError
       GEMDIRS = nil

@@ -136,7 +136,7 @@ module RI
           RI::Paths::HOMEDIR
         ]
 
-        directories << "#{Gem.path}/doc/*/ri" if RI::Paths::GEMDIRS
+        directories.concat Gem.path.to_a.map { |p| "#{p}/doc/*/ri" } if RI::Paths::GEMDIRS
 
         directories = directories.join("\n    ")
 
