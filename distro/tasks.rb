@@ -49,7 +49,25 @@ end
 desc "Create a Debian package."
 task 'package:debian' => :fakeroot do
 	sh "cp -R distro/debian fakeroot/DEBIAN"
-	sh "fakeroot dpkg -b fakeroot ruby-enterprise_#{VENDOR_RUBY_VERSION}-#{REE_VERSION}_i386.deb"
+	
+	installed_size = disk_usage("fakeroot")
+	raw_arch = `uname -m`.strip
+	arch = case raw_arch
+	when /^i.86$/
+		"i386"
+	when /^x86_64/
+		"amd64"
+	else
+		raw_arch
+	end
+	
+	require 'erb'
+	template = ERB.new(File.read("fakeroot/DEBIAN/control"))
+	File.open("fakeroot/DEBIAN/control", "w") do |f|
+		f.write(template.result(binding))
+	end
+	
+	sh "fakeroot dpkg -b fakeroot ruby-enterprise_#{VENDOR_RUBY_VERSION}-#{REE_VERSION}_#{arch}.deb"
 end
 
 desc "Generate the documentation HTML"
@@ -62,7 +80,7 @@ end
 #
 # This function exists because system('which') doesn't always behave
 # correctly, for some weird reason.
-def self.find_command(name)
+def find_command(name)
 	ENV['PATH'].split(File::PATH_SEPARATOR).detect do |directory|
 		path = File.join(directory, name.to_s)
 		if File.executable?(path)
@@ -111,6 +129,7 @@ def create_distdir(distdir = DISTDIR)
 	end
 end
 
+# Returns whether the given filename is an ELF binary.
 def elf_binary?(filename)
 	if File.executable?(filename)
 		return File.read(filename, 4) == "\177ELF"
@@ -119,6 +138,7 @@ def elf_binary?(filename)
 	end
 end
 
+# Iterates through each ELF binary file in the given directory.
 def each_elf_binary(dir, &block)
 	Dir["#{dir}/*"].each do |filename|
 		if File.directory?(filename)
@@ -127,4 +147,14 @@ def each_elf_binary(dir, &block)
 			block.call(filename)
 		end
 	end
+end
+
+# Returns the disk usage of the given directory, in KB.
+def disk_usage(dir)
+	if RUBY_PLATFORM =~ /linux/
+		options = "-a -k --apparent-size --max-depth=0"
+	else
+		options = "-k -d 0"
+	end
+	return `du #{options} \"#{dir}\"`.strip.to_i
 end

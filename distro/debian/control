@@ -1,8 +1,8 @@
 Package: ruby-enterprise
-Version: 1.8.6-20080810
+Version: <%= VENDOR_RUBY_VERSION %>-<%= REE_VERSION %>
 Section: interpreters
 Priority: optional
-Architecture: i386
+Architecture: <%= arch %>
 Essential: no
 Depends: libc6 (>= 2.6.1-1)
 Pre-Depends: 
@@ -11,5 +11,5 @@ Maintainer: Hongli Lai <hongli@phusion.nl>
 Conflicts: 
 Replaces: 
 Provides: 
-Installed-Size: 27848
-Description: Ruby Enterprise Edition, based on Ruby 1.8.6-p286, with security backports.
+Installed-Size: <%= installed_size %>
+Description: Ruby Enterprise Edition.
