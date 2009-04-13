@@ -34,20 +34,13 @@ end
 
 desc "Auto-install into a fake root directory"
 task :fakeroot do
-	distdir = "/tmp/r8ee-test"
-	create_distdir(distdir)
-	sh "rm -rf fakeroot"
-	sh "mkdir fakeroot"
-	fakeroot = File.expand_path("fakeroot")
-	sh "#{distdir}/installer --auto='/opt/ruby-enterprise' --destdir='#{fakeroot}' #{ENV['ARGS']}"
-	each_elf_binary(fakeroot) do |filename|
-		sh "strip --strip-debug '#{filename}'"
-	end
-	puts "*** Ruby Enterprise Edition has been installed to #{fakeroot}"
+	create_fakeroot
 end
 
-desc "Create a Debian package."
-task 'package:debian' => :fakeroot do
+desc "Create a Debian package. Set SKIP_FAKEROOT=1 if you want to bypass fakeroot recreation."
+task 'package:debian' do
+	create_fakeroot if ENV['SKIP_FAKEROOT'].nil? || ENV['SKIP_FAKEROOT'].empty?
+	sh "rm -rf fakeroot/DEBIAN"
 	sh "cp -R distro/debian fakeroot/DEBIAN"
 	
 	installed_size = disk_usage("fakeroot")
@@ -73,6 +66,19 @@ end
 desc "Generate the documentation HTML"
 file 'distro/documentation.html' => 'distro/documentation.txt' do
 	sh "asciidoc -a toc -a numbered -a toclevels=3 -a icons distro/documentation.txt"
+end
+
+def create_fakeroot
+	distdir = "/tmp/r8ee-test"
+	create_distdir(distdir)
+	sh "rm -rf fakeroot"
+	sh "mkdir fakeroot"
+	fakeroot = File.expand_path("fakeroot")
+	sh "#{distdir}/installer --auto='/opt/ruby-enterprise' --destdir='#{fakeroot}' #{ENV['ARGS']}"
+	each_elf_binary(fakeroot) do |filename|
+		sh "strip --strip-debug '#{filename}'"
+	end
+	puts "*** Ruby Enterprise Edition has been installed to #{fakeroot}"
 end
 
 # Check whether the specified command is in $PATH, and return its
@@ -107,7 +113,7 @@ def create_distdir(distdir = DISTDIR)
 	Dir.chdir("#{distdir}/source") do
 		sh "autoconf"
 		sh 'rm', '-rf', 'autom4te.cache'
-		system 'bison', '-y', '-o', 'parse.c', 'parse.y'
+		sh 'bison', '-y', '-o', 'parse.c', 'parse.y'
 	end
 	
 	sh "cp distro/installer distro/installer.rb distro/platform_info.rb " <<
