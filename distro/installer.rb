@@ -184,7 +184,7 @@ private
 			# overwrite the existing files in-place. Overwriting shared
 			# libraries in-place can cause existing processes that use
 			# those libraries to crash.
-			sh("rm -f '#{@destdir}#{@prefix}/lib'/libtcmalloc_minimal*.#{PlatformInfo::LIBEXT}*") &&
+			sh("rm -rf '#{@destdir}#{@prefix}/lib'/libtcmalloc_minimal*.#{PlatformInfo::LIBEXT}*") &&
 			sh("cp -Rpf .libs/libtcmalloc_minimal*.#{PlatformInfo::LIBEXT}* '#{@destdir}#{@prefix}/lib/'")
 		end
 	end
