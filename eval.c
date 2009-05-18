@@ -10530,6 +10530,8 @@ rb_thread_die(th)
     th->stk_ptr = 0;
 }
 
+static int thread_init;
+
 static void
 rb_thread_remove(th)
     rb_thread_t th;
@@ -10541,10 +10543,14 @@ rb_thread_remove(th)
     th->prev->next = th->next;
     th->next->prev = th->prev;
 
+#if defined(HAVE_SETITIMER)
     /* if this is the last ruby thread, stop timer signals */
     if (th->next == th->prev && th->next == main_thread) {
 	rb_thread_stop_timer();
+	/* set thread_init to 0 here because process.c calls stop/start_timer across fork/exec */
+	thread_init = 0;
     }
+#endif
 }
 
 static int
@@ -11843,8 +11849,6 @@ rb_thread_alloc(klass)
     return th;
 }
 
-static int thread_init;
-
 #if defined(_THREAD_SAFE)
 static void
 catch_timer(sig)
@@ -11857,39 +11861,12 @@ catch_timer(sig)
 }
 
 static int time_thread_alive_p = 0;
-#define cleanup_begin(v, t, i, d) \
-    pthread_cleanup_push((void (*)_((void *)))pthread_##t##_##d, v);\
-    pthread_##t##_##i
-#define cleanup_end() pthread_cleanup_pop(1)
-
-#define PER_NANO 1000000000
-
-static struct timespec *
-nsec_future(struct timespec *to, long ns)
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    to->tv_sec = tv.tv_sec;
-    to->tv_nsec = tv.tv_usec * 1000;
-    if ((to->tv_nsec += ns) >= PER_NANO) {
-	to->tv_sec += to->tv_nsec / PER_NANO;
-	to->tv_nsec %= PER_NANO;
-    }
-    return to;
-}
-
 static pthread_t time_thread;
-static pthread_cond_t timer_running = PTHREAD_COND_INITIALIZER;
 
 static void*
 thread_timer(dummy)
     void *dummy;
 {
-    pthread_mutex_t lock;
-    pthread_cond_t *cond = dummy;
-
-    struct timespec to;
-
 #ifdef _THREAD_SAFE
 #define test_cancel() pthread_testcancel()
 #else
@@ -11901,10 +11878,22 @@ thread_timer(dummy)
     sigfillset(&all_signals);
     pthread_sigmask(SIG_BLOCK, &all_signals, 0);
 
-    cleanup_begin(&lock, mutex, init, destroy)(&lock, NULL);
-    cleanup_begin(&lock, mutex, lock, unlock)(&lock);
+    for (;;) {
+#ifdef HAVE_NANOSLEEP
+	struct timespec req, rem;
 
-    while (pthread_cond_timedwait(cond, &lock, nsec_future(&to, PER_NANO / 100))) {
+	test_cancel();
+	req.tv_sec = 0;
+	req.tv_nsec = 10000000;
+	nanosleep(&req, &rem);
+#else
+	struct timeval tv;
+
+	test_cancel();
+	tv.tv_sec = 0;
+	tv.tv_usec = 10000;
+	select(0, NULL, NULL, NULL, &tv);
+#endif
 	if (!rb_thread_critical) {
 	    rb_thread_pending = 1;
 	    if (rb_trap_immediate) {
@@ -11912,30 +11901,17 @@ thread_timer(dummy)
 	    }
 	}
     }
-
-    cleanup_end();
-    cleanup_end();
-
-    return NULL;
 #undef test_cancel
 }
 
 void
 rb_thread_start_timer()
 {
-    if (!thread_init) return;
-    pthread_create(&time_thread, 0, thread_timer, &timer_running);
-    pthread_atfork(0, 0, rb_thread_stop_timer);
-    thread_init = 1;
 }
 
 void
 rb_thread_stop_timer()
 {
-    if (!thread_init) return;
-    pthread_cond_signal(&timer_running);
-    pthread_join(time_thread, NULL);
-    thread_init = 0;
 }
 
 void
@@ -11976,12 +11952,11 @@ rb_thread_start_timer()
 {
     struct itimerval tval;
 
-    if (thread_init) return;
+    if (!thread_init) return;
     tval.it_interval.tv_sec = 0;
     tval.it_interval.tv_usec = 10000;
     tval.it_value = tval.it_interval;
     setitimer(ITIMER_VIRTUAL, &tval, NULL);
-    thread_init = 1;
 }
 
 void
@@ -11994,7 +11969,6 @@ rb_thread_stop_timer()
     tval.it_interval.tv_usec = 0;
     tval.it_value = tval.it_interval;
     setitimer(ITIMER_VIRTUAL, &tval, NULL);
-    thread_init = 0;
 }
 
 void
@@ -12029,6 +12003,7 @@ rb_thread_start_0(fn, arg, th)
     }
 
     if (!thread_init) {
+	thread_init = 1;
 #if defined(HAVE_SETITIMER) || defined(_THREAD_SAFE)
 #if defined(POSIX_SIGNAL)
 	posix_signal(SIGVTALRM, catch_timer);
@@ -12036,7 +12011,13 @@ rb_thread_start_0(fn, arg, th)
 	signal(SIGVTALRM, catch_timer);
 #endif
 
+#ifdef _THREAD_SAFE
+	pthread_create(&time_thread, 0, thread_timer, 0);
+        time_thread_alive_p = 1;
+        pthread_atfork(0, 0, rb_child_atfork);
+#else
 	rb_thread_start_timer();
+#endif
 #endif
     }
 
