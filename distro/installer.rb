@@ -10,6 +10,7 @@ class Installer
 	EMM_RUBY_WEBSITE = "http://www.rubyenterpriseedition.com"
 	REQUIRED_DEPENDENCIES = [
 		Dependencies::CC,
+		Dependencies::CXX,
 		Dependencies::Zlib_Dev,
 		Dependencies::OpenSSL_Dev,
 		Dependencies::Readline_Dev

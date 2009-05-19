@@ -98,6 +98,30 @@ module Dependencies # :nodoc: all
 		dep.website = "http://gcc.gnu.org/"
 	end
 	
+	CXX = Dependency.new do |dep|
+		dep.name = "C++ compiler"
+		dep.define_checker do |result|
+			if PlatformInfo::CXX.nil?
+				result.not_found
+			else
+				result.found(PlatformInfo::CXX)
+			end
+		end
+		if RUBY_PLATFORM =~ /linux/
+			case LINUX_DISTRO
+			when :ubuntu, :debian
+				dep.install_command = "apt-get install build-essential"
+			when :rhel, :fedora, :centos
+				dep.install_command = "yum install gcc-c++"
+			when :gentoo
+				dep.install_command = "emerge -av gcc"
+			end
+		elsif RUBY_PLATFORM =~ /darwin/
+			dep.install_instructions = "Please install the Apple Development Tools: http://developer.apple.com/tools/"
+		end
+		dep.website = "http://gcc.gnu.org/"
+	end
+	
 	Zlib_Dev = Dependency.new do |dep|
 		dep.name = "Zlib development headers"
 		dep.define_checker do |result|
