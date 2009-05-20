@@ -20,7 +20,7 @@ const char ruby_release_date[] = RUBY_RELEASE_DATE;
 const char ruby_platform[] = RUBY_PLATFORM;
 const int ruby_patchlevel = RUBY_PATCHLEVEL;
 
-#define REE_VERSION "20090421"
+#define REE_VERSION "20090520"
 
 void
 Init_version()
