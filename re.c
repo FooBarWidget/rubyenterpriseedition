@@ -1419,7 +1419,7 @@ VALUE
 rb_reg_regcomp(str)
     VALUE str;
 {
-    volatile VALUE save_str = str;
+    VALUE save_str = str;
     if (reg_cache && RREGEXP(reg_cache)->len == RSTRING(str)->len
 	&& case_cache == ruby_ignorecase
 	&& kcode_cache == reg_kcode
@@ -1428,8 +1428,9 @@ rb_reg_regcomp(str)
 
     case_cache = ruby_ignorecase;
     kcode_cache = reg_kcode;
-    return reg_cache = rb_reg_new(RSTRING(str)->ptr, RSTRING(str)->len,
-				  ruby_ignorecase);
+    reg_cache = rb_reg_new(RSTRING(str)->ptr, RSTRING(str)->len, ruby_ignorecase);
+    RB_GC_GUARD(save_str);
+    return reg_cache;
 }
 
 static int
