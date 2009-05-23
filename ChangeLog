@@ -1,3 +1,26 @@
+Wed Mar 4 12:01:19 2009  Brent Roman  <brent@mbari.org>
+        
+        * rubysig.h:  assume non-Apple gcc on PowerPC is not using -mregnames
+        
+        * version.h:  bumped date
+
+Wed Feb 27 12:01:19 2009  Brent Roman  <brent@mbari.org>
+        
+        * rubysig.c:  added support for __anyPowerPC__
+        
+        * version.h:  bumped date
+
+Mon Feb 25 10:53:52 2008  Brent Roman  <brent@mbari.org>
+
+	* backported MBARI 8A patches still
+          fails YAML test_object_id_collision
+
+Mon Feb 16 10:53:52 2008  Brent Roman  <brent@mbari.org>
+
+	* backport from 1.8.7p72-mbari of MBARI patches described at
+          http://sites.google.com/site/brentsrubypatches
+          fails YAML test_object_id_collision
+
 Fri Aug  8 10:53:52 2008  Tanaka Akira  <akr@fsij.org>
 
 	* lib/resolv.rb: randomize source port and transaction id.
