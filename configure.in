@@ -140,8 +140,8 @@ if test $frame_address = yes; then
     AC_DEFINE(USE_BUILTIN_FRAME_ADDRESS)
 fi
 AC_ARG_ENABLE(mbari-api,
-       [  --enable-mbari-api      enable API changes from the MBARI patches. ],
-       [mbari_api=$enableval])
+       [  --disable-mbari-api      disable API changes from the MBARI patches. ],
+       [mbari_api=$enableval], [mbari_api=yes])
 if test "$mbari_api" = yes; then
     AC_DEFINE(MBARI_API)
 fi
