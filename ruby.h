@@ -224,6 +224,8 @@ VALUE rb_ull2inum _((unsigned LONG_LONG));
 
 #define TYPE(x) rb_type((VALUE)(x))
 
+#define RB_GC_GUARD(v) (*(volatile VALUE *)&(v))
+
 void rb_check_type _((VALUE,int));
 #define Check_Type(v,t) rb_check_type((VALUE)(v),t)
 
@@ -441,13 +443,14 @@ struct RBignum {
 #define RFILE(obj)   (R_CAST(RFile)(obj))
 
 #define FL_SINGLETON FL_USER0
-#define FL_MARK      (1<<6)
+#define FL_DEFER_FINALIZE (1<<6)
 #define FL_FINALIZE  (1<<7)
+#define FL_MARK      (1<<11)
 #define FL_TAINT     (1<<8)
 #define FL_EXIVAR    (1<<9)
 #define FL_FREEZE    (1<<10)
 
-#define FL_USHIFT    11
+#define FL_USHIFT    12
 
 #define FL_USER0     (1<<(FL_USHIFT+0))
 #define FL_USER1     (1<<(FL_USHIFT+1))
@@ -523,6 +526,8 @@ void rb_define_attr _((VALUE,const char*,int,int));
 void rb_global_variable _((VALUE*));
 void rb_gc_register_address _((VALUE*));
 void rb_gc_unregister_address _((VALUE*));
+
+int rb_gc_is_thread_marked _((VALUE));
 
 ID rb_intern _((const char*));
 char *rb_id2name _((ID));

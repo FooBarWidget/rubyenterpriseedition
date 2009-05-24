@@ -139,6 +139,24 @@ AC_ARG_ENABLE(frame-address,
 if test $frame_address = yes; then
     AC_DEFINE(USE_BUILTIN_FRAME_ADDRESS)
 fi
+AC_ARG_ENABLE(mbari-api,
+       [  --disable-mbari-api      disable API changes from the MBARI patches. ],
+       [mbari_api=$enableval], [mbari_api=yes])
+if test "$mbari_api" = yes; then
+    AC_DEFINE(MBARI_API)
+fi
+AC_ARG_WITH(wipe-sites,
+[  --with-wipe-sites=MASK  override default STACK_WIPES_SITES mask in rubysig.h],
+[wipe_sites=$withval])
+if test "$wipe_sites" != ""; then
+  case $wipe_sites in
+       none|no)  wipe_sites=0x0;;
+       yes) wipe_sites=;;
+  esac
+  if test -n "$wipe_sites"; then
+    AC_DEFINE_UNQUOTED(STACK_WIPE_SITES,$wipe_sites)
+  fi
+fi
 
 AC_ARG_PROGRAM
 
