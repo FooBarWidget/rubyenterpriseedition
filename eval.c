@@ -5259,7 +5259,6 @@ rb_yield_0(val, self, klass, flags, avalue)
 		    tt->retval = result;
 		    JUMP_TAG(TAG_BREAK);
 		}
-                if (tt->tag == PROT_THREAD) break;
 		tt = tt->prev;
 	    }
 	    proc_jump_error(TAG_BREAK, result);
@@ -6671,7 +6670,6 @@ eval(self, src, scope, file, line)
 
 	    scope_dup(ruby_scope);
 	    for (tag=prot_tag; tag; tag=tag->prev) {
-                if (tag->tag == PROT_THREAD) break;
 		scope_dup(tag->scope);
 	    }
 	    for (vars = ruby_dyna_vars; vars; vars = vars->next) {
@@ -10343,19 +10341,14 @@ timeofday()
     return (double)tv.tv_sec + (double)tv.tv_usec * 1e-6;
 }
 
-
-#define ADJ(addr) \
-   if ((size_t)((void *)addr - stkBase) < stkSize) addr=(void *)addr + stkShift
-
+#define STACK(addr) (th->stk_pos<(VALUE*)(addr) && (VALUE*)(addr)<th->stk_pos+th->stk_len)
+#define ADJ(addr) (void*)(STACK(addr)?(((VALUE*)(addr)-th->stk_pos)+th->stk_ptr):(VALUE*)(addr))
 static void
 thread_mark(th)
     rb_thread_t th;
 {
     struct FRAME *frame;
     struct BLOCK *block;
-    void *stkBase;
-    ptrdiff_t stkShift;
-    size_t stkSize;
 
     rb_gc_mark(th->result);
     rb_gc_mark(th->thread);
@@ -10391,25 +10384,15 @@ thread_mark(th)
 #endif
     }
 
-    stkBase = (void *)th->stk_start;
-    stkSize = th->stk_len * sizeof(VALUE);
-#if STACK_GROW_DIRECTION == 0
-    if (rb_gc_stack_grow_direction < 0)
-#endif
-#if STACK_GROW_DIRECTION <= 0
-      stkBase -= stkSize;
-#endif
-    stkShift = (void *)th->stk_ptr - stkBase;
-    
     frame = th->frame;
     while (frame && frame != top_frame) {
-	ADJ(frame);
+	frame = ADJ(frame);
 	rb_gc_mark_frame(frame);
 	if (frame->tmp) {
 	    struct FRAME *tmp = frame->tmp;
 
 	    while (tmp && tmp != top_frame) {
-		ADJ(tmp);
+		tmp = ADJ(tmp);
 		rb_gc_mark_frame(tmp);
 		tmp = tmp->prev;
 	    }
@@ -10418,7 +10401,7 @@ thread_mark(th)
     }
     block = th->block;
     while (block) {
-	ADJ(block);
+	block = ADJ(block);
 	rb_gc_mark_frame(&block->frame);
 	block = block->prev;
     }
@@ -10571,10 +10554,13 @@ static void
 rb_thread_save_context(th)
     rb_thread_t th;
 {
+    VALUE *pos;
     size_t len;
     static VALUE tval;
 
-    len = ruby_stack_length(th->stk_start,&th->stk_pos);
+    len = ruby_stack_length(&pos);
+    th->stk_len = 0;
+    th->stk_pos = pos;
     if (len > th->stk_max) {
 	VALUE *ptr = realloc(th->stk_ptr, sizeof(VALUE) * len);
 	if (!ptr) rb_memerror();
@@ -10769,7 +10755,7 @@ rb_thread_restore_context(th, exit)
     rb_thread_t th;
     int exit;
 {
-    VALUE *pos = th->stk_start;
+    VALUE *pos = rb_gc_stack_start;
 
 #if HAVE_ALLOCA  /* use alloca to grow stack in O(1) time */
     VALUE v;
@@ -12080,7 +12066,6 @@ rb_thread_group(thread)
     th->result = 0;\
     th->flags = 0;\
 \
-    th->stk_start = rb_gc_stack_start;\
     th->stk_ptr = 0;\
     th->stk_len = 0;\
     th->stk_max = 0;\
@@ -12292,16 +12277,6 @@ rb_thread_start_0(fn, arg, th)
 		 "can't start a new thread (frozen ThreadGroup)");
     }
 
-
-    th->stk_start =   /* establish start of new thread's stack */
-#if STACK_GROW_DIRECTION > 0
-      (VALUE *)ruby_frame;
-#elif STACK_GROW_DIRECTION < 0
-      (VALUE *)(ruby_frame+1);
-#else
-      (VALUE *)(ruby_frame+((VALUE *)(&arg)<rb_gc_stack_start))
-#endif
- 
     if (!thread_init) {
 	thread_init = 1;
 #if defined(HAVE_SETITIMER) || defined(_THREAD_SAFE)
@@ -12347,8 +12322,6 @@ rb_thread_start_0(fn, arg, th)
     PUSH_TAG(PROT_THREAD);
     if ((state = EXEC_TAG()) == 0) {
 	if (THREAD_SAVE_CONTEXT(th) == 0) {
-            ruby_frame->prev = top_frame;     /* hide parent thread's frames */
-            ruby_frame->tmp = 0;           
 	    curr_thread = th;
 	    th->result = (*fn)(arg, th);
 	}
@@ -12460,6 +12433,9 @@ rb_thread_s_new(argc, argv, klass)
     VALUE klass;
 {
     rb_thread_t th = rb_thread_alloc(klass);
+    volatile VALUE *pos;
+
+    pos = th->stk_pos;
     rb_obj_call_init(th->thread, argc, argv);
     if (th->stk_pos == 0) {
 	rb_raise(rb_eThreadError, "uninitialized thread - check `%s#initialize'",

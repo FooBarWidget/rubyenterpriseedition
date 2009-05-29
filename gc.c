@@ -747,37 +747,39 @@ VALUE *__sp(void) {
 #endif
 
 #if STACK_GROW_DIRECTION < 0
-# define STACK_LENGTH(start)  ((start) - STACK_END)
+# define STACK_LENGTH  (rb_gc_stack_start - STACK_END)
 #elif STACK_GROW_DIRECTION > 0
-# define STACK_LENGTH(start)  (STACK_END - (start) + 1)
+# define STACK_LENGTH  (STACK_END - rb_gc_stack_start + 1)
 #else
-# define STACK_LENGTH(start)  ((STACK_END < (start)) ? \
-                                 (start) - STACK_END : STACK_END - (start) + 1)
+# define STACK_LENGTH  ((STACK_END < rb_gc_stack_start) ? rb_gc_stack_start - STACK_END\
+                                           : STACK_END - rb_gc_stack_start + 1)
 #endif
 
 #if STACK_GROW_DIRECTION > 0
-# define STACK_UPPER(a, b) a
+# define STACK_UPPER(x, a, b) a
 #elif STACK_GROW_DIRECTION < 0
-# define STACK_UPPER(a, b) b
+# define STACK_UPPER(x, a, b) b
 #else
-int rb_gc_stack_grow_direction;
+static int grow_direction;
 static int
 stack_grow_direction(addr)
     VALUE *addr;
 {
     SET_STACK_END;
-    return rb_gc_stack_grow_direction = STACK_END > addr ? 1 : -1;
+    if (STACK_END > addr) return grow_direction = 1;
+    return grow_direction = -1;
 }
-# define STACK_UPPER(a, b) (rb_gc_stack_grow_direction > 0 ? a : b)
+# define stack_growup_p(x) ((grow_direction ? grow_direction : stack_grow_direction(x)) > 0)
+# define STACK_UPPER(x, a, b) (stack_growup_p(x) ? a : b)
 #endif
 
 size_t
-ruby_stack_length(start, base)
-    VALUE *start, **base;
+ruby_stack_length(p)
+    VALUE **p;
 {
     SET_STACK_END;
-    if (base) *base = STACK_UPPER(start, STACK_END);
-    return STACK_LENGTH(start);
+    if (p) *p = STACK_UPPER(STACK_END, rb_gc_stack_start, STACK_END);
+    return STACK_LENGTH;
 }
 
 int
@@ -1668,9 +1670,9 @@ garbage_collect_0(VALUE *top_frame)
     }
 
 #if STACK_GROW_DIRECTION < 0
-    rb_gc_mark_locations(top_frame, rb_curr_thread->stk_start);
+    rb_gc_mark_locations(top_frame, rb_gc_stack_start);
 #elif STACK_GROW_DIRECTION > 0
-    rb_gc_mark_locations(rb_curr_thread->stk_start, top_frame + 1);
+    rb_gc_mark_locations(rb_gc_stack_start, top_frame + 1);
 #else
     if (rb_gc_stack_grow_direction < 0)
 	rb_gc_mark_locations(top_frame, rb_curr_thread->stk_start);
@@ -1864,9 +1866,10 @@ Init_stack(addr)
     }
 #else
     if (!addr) addr = (void *)&addr;
-    STACK_UPPER(addr, ++addr);
+    STACK_UPPER(&addr, addr, ++addr);
     if (rb_gc_stack_start) {
-	if (STACK_UPPER(rb_gc_stack_start > addr,
+	if (STACK_UPPER(&addr,
+	                rb_gc_stack_start > addr,
 			rb_gc_stack_start < addr))
 	    rb_gc_stack_start = addr;
 	return;
@@ -1883,7 +1886,8 @@ void ruby_init_stack(VALUE *addr
     )
 {
     if (!rb_gc_stack_start ||
-        STACK_UPPER(rb_gc_stack_start > addr,
+        STACK_UPPER(&addr,
+                    rb_gc_stack_start > addr,
                     rb_gc_stack_start < addr)) {
         rb_gc_stack_start = addr;
     }
