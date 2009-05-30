@@ -8135,6 +8135,17 @@ rb_exec_end_proc()
     ruby_safe_level = safe;
 }
 
+/* Hash (Thread => Backtrace) used to collect backtrace for each threads. */
+static VALUE backtrace_for_each_thread;
+
+static int backtrace_level_for_each_thread;
+
+static VALUE
+switch_thread_context_to_collect_backtrace(rb_thread_t next);
+
+static VALUE
+rb_f_caller_for_all_threads();
+
 void
 Init_eval()
 {
@@ -8180,6 +8191,7 @@ Init_eval()
     rb_define_global_function("fail", rb_f_raise, -1);
 
     rb_define_global_function("caller", rb_f_caller, -1);
+    rb_define_global_function("caller_for_all_threads", rb_f_caller_for_all_threads, -1);
 
     rb_define_global_function("exit", rb_f_exit, -1);
     rb_define_global_function("abort", rb_f_abort, -1);
@@ -10561,6 +10573,7 @@ static int   th_sig, th_safe;
 #define RESTORE_RAISE		5
 #define RESTORE_SIGNAL		6
 #define RESTORE_EXIT		7
+#define RESTORE_BACKTRACE	8
 
 extern VALUE *rb_gc_stack_start;
 #ifdef __ia64
@@ -10668,6 +10681,15 @@ rb_thread_switch(n)
 	}
 	rb_exc_raise(th_raise_exception);
 	break;
+      case RESTORE_BACKTRACE:
+        rb_hash_aset(backtrace_for_each_thread, curr_thread->thread, 
+                     backtrace(backtrace_level_for_each_thread));
+        if (curr_thread != main_thread) {
+            switch_thread_context_to_collect_backtrace(curr_thread->next);
+        } else { 
+	        /* Circled back to main thread, cycle is complete. */
+        }
+        break;
       case RESTORE_NORMAL:
       default:
 	break;
@@ -13653,4 +13675,75 @@ rb_throw(tag, val)
     argv[0] = ID2SYM(rb_intern(tag));
     argv[1] = val;
     rb_f_throw(2, argv);
+}
+
+static VALUE
+switch_thread_context_to_collect_backtrace(rb_thread_t next)
+{
+    if (THREAD_SAVE_CONTEXT(curr_thread)) {
+        return Qnil;
+    }
+    curr_thread = next;
+    rb_thread_restore_context(next, RESTORE_BACKTRACE);
+    return Qnil;
+}
+
+
+/*
+ *  call-seq:
+ *     caller_for_all_threads(start=1)    => array
+ *  
+ *  Returns the current execution stack for all threads 
+ *  ---a hash whose keys are thread instances and values
+ *  the thread caller backtrace.
+ *
+ *  Backtraces are array of hashes indicating location on the 
+ *  stack. Hash keys include ``<em>:line</em>'' or ``<em>:file</em>''
+ *  and ``<em>:method'</em>''. 
+ *
+ *  The optional _start_ parameter
+ *  determines the number of initial stack entries to omit from the
+ *  result.
+ *     
+ *     def a(skip)
+ *       caller_for_all_threads(skip)
+ *     end
+ *     def b(skip)
+ *       a(skip)
+ *     end
+ *     def c(skip)
+ *       b(skip)
+ *     end
+ *     c(0)   #=> ["prog:2:in `a'", "prog:5:in `b'", "prog:8:in `c'", "prog:10"]
+ *     c(1)   #=> ["prog:5:in `b'", "prog:8:in `c'", "prog:11"]
+ *     c(2)   #=> ["prog:8:in `c'", "prog:12"]
+ *     c(3)   #=> ["prog:13"]
+ */
+static VALUE
+rb_f_caller_for_all_threads(argc, argv)
+    int argc;
+    VALUE *argv;
+{
+    volatile int critical;
+    VALUE level;
+	VALUE result;
+
+    rb_scan_args(argc, argv, "01", &level);
+    backtrace_level_for_each_thread = NIL_P(level) ? 0 : NUM2INT(level);
+	if (backtrace_level_for_each_thread < 0) {
+		rb_raise(rb_eArgError, "negative level (%d)", backtrace_level_for_each_thread);
+	}
+
+	critical = rb_thread_critical;
+	rb_thread_critical = Qtrue;
+
+    backtrace_for_each_thread = rb_hash_new();
+    switch_thread_context_to_collect_backtrace(main_thread->next);
+
+	result = backtrace_for_each_thread;
+	backtrace_for_each_thread = Qnil;
+	backtrace_for_each_thread = 0;
+		
+	rb_thread_critical = critical;
+    return result;
 }
