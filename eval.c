@@ -12007,6 +12007,7 @@ rb_thread_group(thread)
     th->stk_size = 0;\
     th->stk_max = 0;\
     th->wait_for = 0;\
+    th->gc_stack_end = (VALUE *) STACK_GROW_DIRECTION;\
     IA64_INIT(th->bstr_ptr = 0);\
     IA64_INIT(th->bstr_len = 0);\
     IA64_INIT(th->bstr_max = 0);\
