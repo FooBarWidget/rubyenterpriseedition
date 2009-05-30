@@ -152,7 +152,6 @@ void rb_trap_restore_mask _((void));
 RUBY_EXTERN int rb_thread_critical;
 void rb_thread_schedule _((void));
 
-RUBY_EXTERN VALUE *rb_gc_stack_end;
 RUBY_EXTERN int rb_gc_stack_grow_direction;  /* -1 for down or 1 for up */
 
 #if STACK_GROW_DIRECTION > 0
@@ -272,12 +271,14 @@ RUBY_EXTERN VALUE *__sp(void);
 #if STACK_WIPE_METHOD == 0
 #define rb_gc_wipe_stack() ((void)0)
 #elif STACK_WIPE_METHOD == 4
-#define rb_gc_wipe_stack() {     \
-  VALUE *end = rb_gc_stack_end;  \
-  VALUE *sp = __sp();            \
-  rb_gc_stack_end = sp;          \
-  __stack_zero(end, sp);   \
-}
+#define rb_gc_wipe_stack() do { \
+  if (rb_curr_thread) {     \
+    VALUE *end = rb_curr_thread->gc_stack_end;  \
+    VALUE *sp = __sp();            \
+    rb_curr_thread->gc_stack_end = sp;          \
+    __stack_zero(end, sp);   \
+  } \
+} while (0)
 #else
 RUBY_EXTERN void rb_gc_wipe_stack(void);
 #endif
@@ -287,7 +288,7 @@ RUBY_EXTERN void rb_gc_wipe_stack(void);
 */
 #define rb_gc_update_stack_extent() do { \
     VALUE *sp = __sp(); \
-    if __stack_past(rb_gc_stack_end, sp) rb_gc_stack_end = sp; \
+    if (rb_curr_thread && __stack_past(rb_curr_thread->gc_stack_end, sp)) rb_curr_thread->gc_stack_end = sp; \
 } while(0)
 
 
