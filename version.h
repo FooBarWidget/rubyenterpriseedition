@@ -1,3 +1,4 @@
+#define RUBY_ENGINE "ruby"
 #define RUBY_VERSION "1.8.6"
 #define RUBY_RELEASE_DATE "2009-3-4"
 #define RUBY_VERSION_CODE 186

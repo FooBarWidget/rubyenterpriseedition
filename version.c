@@ -17,6 +17,7 @@
 #define PRINT(type) puts(ruby_##type)
 #define MKSTR(type) rb_obj_freeze(rb_str_new(ruby_##type, sizeof(ruby_##type)-1))
 
+const char ruby_engine[] = RUBY_ENGINE;
 const char ruby_version[] = RUBY_VERSION;
 const char ruby_release_date[] = RUBY_RELEASE_DATE;
 const char ruby_platform[] = RUBY_PLATFORM;
@@ -29,11 +30,13 @@ Init_version()
 {
     static char description[128];
     static char copyright[128];
+    VALUE e = rb_obj_freeze(rb_str_new2(ruby_engine));
     VALUE v = MKSTR(version);
     VALUE d = MKSTR(release_date);
     VALUE p = MKSTR(platform);
     VALUE tmp;
 
+    rb_define_global_const("RUBY_ENGINE", e);
     rb_define_global_const("RUBY_VERSION", v);
     rb_define_global_const("RUBY_RELEASE_DATE", d);
     rb_define_global_const("RUBY_PLATFORM", p);
