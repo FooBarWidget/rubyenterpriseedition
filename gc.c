@@ -793,7 +793,13 @@ ruby_stack_check()
     if (!rb_main_thread || rb_curr_thread == rb_main_thread)
 	return __stack_past(stack_limit, STACK_END);
     else
-	return __stack_past((VALUE *) ((char *) rb_curr_thread->stk_ptr + rb_curr_thread->stk_len), STACK_END);
+	/* ruby_stack_check() is only called periodically, but we want to
+	 * detect a stack overflow before the thread's guard area is accessed.
+	 * So we append a '+ getpagesize()' to the address check.
+	 *
+	 * TODO: support architectures on which the stack grows upwards.
+	 */
+	return __stack_past(rb_curr_thread->guard + getpagesize(), STACK_END);
 }
 
 /*
