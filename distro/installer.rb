@@ -20,7 +20,7 @@ class Installer
 		Dir.chdir(ROOT)
 		@version = File.read("version.txt")
 		@auto_install_prefix = options[:prefix]
-		@destdir = options[:destdir]
+		@destdir = strip_trailing_slashes(options[:destdir])
 		@install_useful_gems = options[:install_useful_gems]
 		@use_tcmalloc = options[:tcmalloc]
 		if !options[:extra_configure_args].empty?
@@ -137,6 +137,19 @@ private
 		end
 	end
 	
+	def strip_trailing_slashes(data)
+		if data.nil?
+			return nil
+		else
+			result = data.sub(/\/+$/, '')
+			if result.empty? && !data.empty?
+				return '/'
+			else
+				return result
+			end
+		end
+	end
+	
 	def ask_installation_prefix
 		line
 		color_puts "<banner>Target directory</banner>"
@@ -151,6 +164,7 @@ private
 			puts
 			@prefix = query_directory(@old_prefix || "/opt/ruby-enterprise-#{@version}")
 		end
+		@prefix = strip_trailing_slashes(@prefix)
 		@prefix_changed = @prefix != @old_prefix
 		File.open("source/.prefix.txt", "w") do |f|
 			f.write(@prefix)
