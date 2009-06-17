@@ -13570,7 +13570,7 @@ Init_Thread()
 #ifdef MBARI_API
     rb_define_method(rb_cCont, "thread", rb_cont_thread, 0);
 #endif
-    rb_define_global_function("callcc", rb_callcc, 0);
+    /* rb_define_global_function("callcc", rb_callcc, 0); */
     rb_global_variable(&cont_protect);
 
     cThGroup = rb_define_class("ThreadGroup", rb_cObject);
