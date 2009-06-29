@@ -1,6 +1,6 @@
 = Ruby Enterprise Edition Features Guide
 
-== Overview of Ruby Enterprise Edition
+== Overview of Ruby Enterprise Edition (REE)
 Ruby Enterprise Edition (REE) is a server-oriented distribution of the official Ruby interpreter, and includes various additional enhancements:
 
 - A copy-on-write friendly garbage collector. Phusion Passenger uses this, in combination with a technique called preforking, to reduce Ruby on Rails applications' memory usage by 33% on average.
@@ -18,6 +18,8 @@ link:http://ph7spot.com/articles/caller_for_all_threads[caller_for_all_threads],
 Darryl Gove's and Miriam Blatt's link:http://blogs.sun.com/d/entry/ruby_performance_gains_on_sparc[Sparc optimization patches],
 Joe Damato's and Aman Gupta's http://timetobleed.com/ruby-threading-bugfix-small-fix-goes-a-long-way/[SIGVTALRM patch].
 
+
+== Installation and uninstallation
 
 === Installation via Debian package or source tarball
 To install REE, download either the source tarball or the Debian package
@@ -190,6 +192,38 @@ sudo make install
 --------------------------
 
 
+=== RubyCocoa compatibility and `--enable-shared`
+
+In order to use RubyCocoa, the Ruby interpreter must be compiled with
+`--enable-shared`. By default, Ruby Enterprise Edition's interpreter is not compiled
+with `--enable-shared`. You can compile the Ruby Enterprise Edition interpreter
+with this flag by passing `-c --enable-shared` to its installer, like this:
+
+---------------------------------------------------------
+./ruby-enterprise-X.X.X/installer -c --enable-shared
+---------------------------------------------------------
+
+Please note that enabling `--enable-shared` will make the Ruby interpreter about
+20% slower. It is for this reason that we don't recommend enabling `--enable-shared`
+on server environments, although it's fine for desktop environments.
+
+=== Tcl/Tk compatibility and `--enable-pthread`
+
+In order to use Tcl/Tk with threading support, the Ruby interpreter must be compiled
+with `--enable-pthread`. By default, Ruby Enterprise Edition's interpreter is not
+compiled with `--enable-pthread`. You can compile the Ruby Enterprise Edition
+interpreter with this flag by passing `-c --enable-pthread` to its installer,
+like this:
+
+---------------------------------------------------------
+./ruby-enterprise-X.X.X/installer -c --enable-pthread
+---------------------------------------------------------
+
+Please note that enabling `--enable-pthread` will make the Ruby interpreter about
+50% slower. It is for this reason that we don't recommend enabling `--enable-shared`
+on server environments, although it's fine for desktop environments.
+
+
 === How REE installs itself into the system
 By default, REE installs itself into a directory in '/opt'. If you already had a
 Ruby interpreter installed (typically in '/usr'; let's call this 'the system Ruby
@@ -204,15 +238,36 @@ parallel to the system Ruby interpreter. This also means that:
 - When running Ruby programs, the system Ruby interpreter will be used unless
   you explicitly configures the system to use REE by default.
 
-[NOTE]
-.Why doesn't REE use the system Ruby interpreter's gems?
+==== Why doesn't REE use the system Ruby interpreter's gems?
 REE does not use the system Ruby interpreter's gems because it can cause
 problems with native extensions, e.g. RMagick, Mongrel, Hpricot, etc. A native
 extension compiled for one Ruby installation might crash when used in a
 different Ruby installation. This is why you must reinstall your gems in
 REE.
 
-=== Using REE
+=== Upgrading
+To upgrade REE through the Debian package, just install the Debian package.
+
+To upgrade REE through the source tarball, run the installer in the source
+tarball and specify the same destination prefix directory that REE is currently
+installed in. For example, if REE is currently installed in
+'/opt/ruby-enterprise-20081215', then specify '/opt/ruby-enterprise-20081215'
+in the upgrade source tarball's installer.
+
+=== Uninstallation
+If you installed REE through a Debian package, then uninstall the Debian package
+with 'dpkg' or with 'apt-get'.
+
+If you installed REE through the source tarball, then you can uninstall it by
+deleting the directory in which REE is installed. For example, if REE was
+installed to '/opt/ruby-enterprise-X.X.X' (the default), then just delete that
+directory. It is for this reason why we recommend installing REE into its own
+directory.
+
+
+== Using Ruby Enterprise Edition
+
+=== General usage
 Normally one would run a Ruby program by invoking the Ruby interpreter with a
 source file as its first argument:
 
@@ -282,26 +337,10 @@ LANG="en_US.UTF-8"
 LANGUAGE="en_US:en"
 -------------------------------------
 
-=== Upgrading
-To upgrade REE through the Debian package, just install the Debian package.
 
-To upgrade REE through the source tarball, run the installer in the source
-tarball and specify the same destination prefix directory that REE is currently
-installed in. For example, if REE is currently installed in
-'/opt/ruby-enterprise-20081215', then specify '/opt/ruby-enterprise-20081215'
-in the upgrade source tarball's installer.
+== Garbage collector and object space
 
-=== Uninstallation
-If you installed REE through a Debian package, then uninstall the Debian package
-with 'dpkg' or with 'apt-get'.
-
-If you installed REE through the source tarball, then you can uninstall it by
-deleting the directory in which REE is installed. For example, if REE was
-installed to '/opt/ruby-enterprise-X.X.X' (the default), then just delete that
-directory. It is for this reason why we recommend installing REE into its own
-directory.
-
-== Copy-on-write friendliness of the garbage collector
+=== Copy-on-write friendliness
 By default, REE's garbage collector is not copy-on-write-friendly, just like
 a stock Ruby interpreter. Copy-on-write-friendliness can be turned on during
 runtime by calling:
@@ -322,8 +361,7 @@ copy-on-write-friendly mode:
 GC.copy_on_write_friendly?
 -----------------------------------------------
 
-
-== Garbage collector performance tuning
+=== Garbage collector performance tuning
 Ruby's garbage collector tries to adapt memory usage to the amount of memory
 used by the program by dynamically growing or shrinking the allocated heap as
 it sees fit. For long running server applications, this approach isn't always
@@ -410,7 +448,7 @@ Twitter link:http://blog.evanweaver.com/articles/2009/04/09/ruby-gc-tuning/[clai
 that these settings give them about 20% to 40% average performance improvement,
 at the cost of slightly higher peak memory usage.
 
-== Garbage collector statistics
+=== Garbage collector statistics
 One can inspect various garbage collector statistics by calling certain methods.
 Statistics collection is disabled by default, so before one can obtain the
 statistics, statistics collection must be enabled by calling:
@@ -470,7 +508,7 @@ GC.clear_stats
 --------------------------
 
 
-== Memory allocation and object heap statistics
+=== Memory allocation and object heap statistics
 One can obtain various statistics about object allocation. Some of the
 statistics methods listed here require one to explicitly enable statistics
 collection, just like the garbage collection statistics methods.
@@ -575,35 +613,3 @@ This program will print:
 signal to a Phusion Passenger backend process, it will print the backtrace of
 all threads to the Apache error log. This feature is also documented in the
 Phusion Passenger users guide.
-
-
-== RubyCocoa compatibility and `--enable-shared`
-
-In order to use RubyCocoa, the Ruby interpreter must be compiled with
-`--enable-shared`. By default, Ruby Enterprise Edition's interpreter is not compiled
-with `--enable-shared`. You can compile the Ruby Enterprise Edition interpreter
-with this flag by passing `-c --enable-shared` to its installer, like this:
-
----------------------------------------------------------
-./ruby-enterprise-X.X.X/installer -c --enable-shared
----------------------------------------------------------
-
-Please note that enabling `--enable-shared` will make the Ruby interpreter about
-20% slower. It is for this reason that we don't recommend enabling `--enable-shared`
-on server environments, although it's fine for desktop environments.
-
-== Tcl/Tk compatibility and `--enable-pthread`
-
-In order to use Tcl/Tk with threading support, the Ruby interpreter must be compiled
-with `--enable-pthread`. By default, Ruby Enterprise Edition's interpreter is not
-compiled with `--enable-pthread`. You can compile the Ruby Enterprise Edition
-interpreter with this flag by passing `-c --enable-pthread` to its installer,
-like this:
-
----------------------------------------------------------
-./ruby-enterprise-X.X.X/installer -c --enable-pthread
----------------------------------------------------------
-
-Please note that enabling `--enable-pthread` will make the Ruby interpreter about
-50% slower. It is for this reason that we don't recommend enabling `--enable-shared`
-on server environments, although it's fine for desktop environments.
