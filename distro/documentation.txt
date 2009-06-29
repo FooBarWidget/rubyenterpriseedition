@@ -491,6 +491,10 @@ do_something
 GC.time            # => 3000000
 ----------------------------
 
+*`GC.growth`*::
+	Returns the number of bytes that have been allocated since the last
+	garbage collection run.
+
 *`GC.dump`*::
 	Dumps information about the current GC data structures to the GC
 	log file, to `stderr` if no GC log file is specified. One can specify
@@ -613,3 +617,43 @@ This program will print:
 signal to a Phusion Passenger backend process, it will print the backtrace of
 all threads to the Apache error log. This feature is also documented in the
 Phusion Passenger users guide.
+
+
+== Obtaining the source filename and line of arbitrary methods and blocks
+All Method and Proc objects provide the `__file__` and `__line__` methods for
+obtaining the source filename and line on which said method or proc was defined.
+This is extremely useful for debugging applications or frameworks that rely on
+heavily on meta-programming.
+
+For example, consider a Ruby on Rails application which has a User model. The
+`users` database table has a `username` field, so ActiveRecord automatically
+generates a `username` method for the User class. By calling `__file__` and
+`__line__` one can see where in the ActiveRecord source code the method is
+defined:
+
+-------------------------------
+>> method = User.new.method(:username)
+=> #<Method: User#username>
+>> method.__file__
+=> "/opt/ruby-enterprise/lib/ruby/gems/1.8/gems/activerecord-2.3.2/lib/active_record/attribute_methods.rb"
+>> method.__line__
+=> 211
+-------------------------------
+
+A simpler example that doesn't involve Ruby on Rails:
+
+[source, ruby]
+-------------------------------
+# foo.rb
+
+class Foo
+   def foo
+   end
+end
+
+foo = Foo.new
+
+method = foo.method(:foo)
+method.__file__    # => foo.rb
+method.__line__    # => 4
+-------------------------------
