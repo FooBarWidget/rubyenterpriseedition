@@ -67,7 +67,7 @@ void
 ruby_show_version()
 {
     PRINT(description);
-    PRINT("Ruby Enterprise Edition " REE_VERSION);
+    printf("Ruby Enterprise Edition " REE_VERSION "\n");
     fflush(stdout);
 }
 
