@@ -14,6 +14,7 @@
 
 #include "ruby.h"
 #include "rubysig.h"
+#include "node.h"
 #include <signal.h>
 #include <stdio.h>
 
@@ -389,6 +390,7 @@ rb_f_kill(argc, argv)
 		rb_sys_fail(0);
 	}
     }
+    CHECK_INTS;  /* in case we killed ourselves */
     return INT2FIX(i-1);
 }
 
@@ -425,15 +427,22 @@ typedef RETSIGTYPE (*sighandler_t)_((int));
 static sighandler_t
 ruby_signal(signum, handler)
     int signum;
-    sighandler_t handler;
+    void *handler;
 {
     struct sigaction sigact, old;
 
     rb_trap_accept_nativethreads[signum] = 0;
 
-    sigact.sa_handler = handler;
+    if (signum == SIGSEGV || signum == SIGBUS) {
+      sigact.sa_sigaction = handler;
+      sigact.sa_flags = (SA_ONSTACK | SA_RESETHAND | SA_SIGINFO);
+    } else {
+      sigact.sa_handler = handler;
+      sigact.sa_flags = 0;
+    }
+
     sigemptyset(&sigact.sa_mask);
-    sigact.sa_flags = 0;
+
 # ifdef SA_NOCLDWAIT
     if (signum == SIGCHLD && handler == SIG_IGN)
 	sigact.sa_flags |= SA_NOCLDWAIT;
@@ -596,7 +605,132 @@ sighandler(sig)
     }
 }
 
+#include <stdio.h>
+#ifdef HAVE_STDARG_PROTOTYPES
+#include <stdarg.h>
+#define va_init_list(a,b) va_start(a,b)
+#else
+#include <varargs.h>
+#define va_init_list(a,b) va_start(a)
+#endif
+
+void
+#ifdef HAVE_STDARG_PROTOTYPES
+sig_printf(const char *fmt, ...)
+#else
+  sig_printf(fmt, va_alist)
+     const char *fmt;
+    va_dcl
+#endif
+{
+  char buf[BUFSIZ];
+  va_list args;
+  FILE *out = stderr;
+
+  va_init_list(args, fmt);
+  vfprintf(out, fmt, args);
+  va_end(args);
+  fprintf(out, "\n");
+}
+
+static void
+dump_machine_state(uc)
+     ucontext_t *uc;
+{
+  const char *dump64 =
+    " ----------------- Register state dump ----------------------\n"
+    "rax = 0x%.16x  rbx    = 0x%.16x  rcx = 0x%.16x  rdx = 0x%.16x\n"
+    "rdi = 0x%.16x  rsi    = 0x%.16x  rbp = 0x%.16x  rsp = 0x%.16x\n"
+    "r8  = 0x%.16x  r9     = 0x%.16x  r10 = 0x%.16x  r11 = 0x%.16x\n"
+    "r12 = 0x%.16x  r13    = 0x%.16x  r14 = 0x%.16x  r15 = 0x%.16x\n"
+    "rip = 0x%.16x  rflags = 0x%.16x  cs  = 0x%.16x  fs  = 0x%.16x\n"
+    "gs  = 0x%.16x";
+
+  const char *dump32 =
+    " ----------------- Register state dump -------------------\n"
+    "eax = 0x%.8x  ebx    = 0x%.8x  ecx = 0x%.8x  edx = 0x%.8x\n"
+    "edi = 0x%.8x  esi    = 0x%.8x  ebp = 0x%.8x  esp = 0x%.8x\n"
+    "ss  = 0x%.8x  eflags = 0x%.8x  eip = 0x%.8x  cs  = 0x%.8x\n"
+    "ds  = 0x%.8x  es     = 0x%.8x  fs  = 0x%.8x  gs  = 0x%.8x\n";
+
+#if defined(__LP64__) && defined(__APPLE__)
+  sig_printf(dump64, uc->uc_mcontext->__ss.__rax, uc->uc_mcontext->__ss.__rbx,
+	     uc->uc_mcontext->__ss.__rcx, uc->uc_mcontext->__ss.__rdx, uc->uc_mcontext->__ss.__rdi,
+	     uc->uc_mcontext->__ss.__rsi, uc->uc_mcontext->__ss.__rbp, uc->uc_mcontext->__ss.__rsp,
+	     uc->uc_mcontext->__ss.__r8, uc->uc_mcontext->__ss.__r9, uc->uc_mcontext->__ss.__r10,
+	     uc->uc_mcontext->__ss.__r11, uc->uc_mcontext->__ss.__r12, uc->uc_mcontext->__ss.__r13,
+	     uc->uc_mcontext->__ss.__r14, uc->uc_mcontext->__ss.__r15, uc->uc_mcontext->__ss.__rip,
+	     uc->uc_mcontext->__ss.__rflags, uc->uc_mcontext->__ss.__cs, uc->uc_mcontext->__ss.__fs,
+	     uc->uc_mcontext->__ss.__gs);
+#elif !defined(__LP64__) && defined(__APPLE__)
+  sig_printf(dump32, uc->uc_mcontext->__ss.__eax, uc->uc_mcontext->__ss.__ebx,
+	     uc->uc_mcontext->__ss.__ecx, uc->uc_mcontext->__ss.__edx,
+	     uc->uc_mcontext->__ss.__edi, uc->uc_mcontext->__ss.__esi,
+	     uc->uc_mcontext->__ss.__ebp, uc->uc_mcontext->__ss.__esp,
+	     uc->uc_mcontext->__ss.__ss, uc->uc_mcontext->__ss.__eflags,
+	     uc->uc_mcontext->__ss.__eip, uc->uc_mcontext->__ss.__cs,
+	     uc->uc_mcontext->__ss.__ds, uc->uc_mcontext->__ss.__es,
+	     uc->uc_mcontext->__ss.__fs, uc->uc_mcontext->__ss.__gs);
+#elif defined(__i386__)
+  sig_printf(dump32, uc->uc_mcontext.gregs[REG_EAX], uc->uc_mcontext.gregs[REG_EBX],
+	     uc->uc_mcontext.gregs[REG_ECX], uc->uc_mcontext.gregs[REG_EDX],
+	     uc->uc_mcontext.gregs[REG_EDI], uc->uc_mcontext.gregs[REG_ESI],
+	     uc->uc_mcontext.gregs[REG_EBP], uc->uc_mcontext.gregs[REG_ESP],
+	     uc->uc_mcontext.gregs[REG_SS], uc->uc_mcontext.gregs[REG_EFL],
+	     uc->uc_mcontext.gregs[REG_EIP], uc->uc_mcontext.gregs[REG_EIP],
+	     uc->uc_mcontext.gregs[REG_DS], uc->uc_mcontext.gregs[REG_ES],
+	     uc->uc_mcontext.gregs[REG_FS], uc->uc_mcontext.gregs[REG_FS]);
+#elif defined(__x86_64__)
+  sig_printf(dump64, uc->uc_mcontext.gregs[REG_RAX], uc->uc_mcontext.gregs[REG_RBX],
+	     uc->uc_mcontext.gregs[REG_RCX], uc->uc_mcontext.gregs[REG_RDX],
+	     uc->uc_mcontext.gregs[REG_RDI], uc->uc_mcontext.gregs[REG_RSI],
+	     uc->uc_mcontext.gregs[REG_RBP], uc->uc_mcontext.gregs[REG_RSP],
+	     uc->uc_mcontext.gregs[REG_R8], uc->uc_mcontext.gregs[REG_R9],
+	     uc->uc_mcontext.gregs[REG_R10], uc->uc_mcontext.gregs[REG_R11],
+	     uc->uc_mcontext.gregs[REG_R12], uc->uc_mcontext.gregs[REG_R13],
+	     uc->uc_mcontext.gregs[REG_R14], uc->uc_mcontext.gregs[REG_R15],
+	     uc->uc_mcontext.gregs[REG_RIP], uc->uc_mcontext.gregs[REG_EFL],
+	     uc->uc_mcontext.gregs[REG_CSGSFS]);
+#else
+#endif
+}
+
+static int
+check_guard(caddr_t fault_addr, rb_thread_t th) {
+  if(fault_addr <= (caddr_t)rb_curr_thread->guard &&
+     fault_addr >= (caddr_t)rb_curr_thread->stk_ptr) {
+    return 1;
+  }
+  return 0;
+}
+
 #ifdef SIGBUS
+#ifdef POSIX_SIGNAL
+static void sigbus _((int, siginfo_t*, void*));
+static void
+sigbus(sig, ip, context)
+     int sig;
+     siginfo_t *ip;
+     void *context;
+{
+#if defined(HAVE_NATIVETHREAD) && defined(HAVE_NATIVETHREAD_KILL)
+  if (!is_ruby_native_thread() && !rb_trap_accept_nativethreads[sig]) {
+    sigsend_to_ruby_thread(sig);
+    return;
+  }
+#endif
+
+  dump_machine_state(context);
+  if (check_guard((caddr_t)ip->si_addr, rb_curr_thread)) {
+    /* we hit the guard page, print out a warning to help app developers */
+    rb_bug("Thread stack overflow! Try increasing it!");
+  } else {
+    rb_bug("Bus Error");
+  }
+}
+
+#else /* !defined(POSIX_SIGNAL) */
+
 static RETSIGTYPE sigbus _((int));
 static RETSIGTYPE
 sigbus(sig)
@@ -612,8 +746,36 @@ sigbus(sig)
     rb_bug("Bus Error");
 }
 #endif
+#endif
+
 
 #ifdef SIGSEGV
+#ifdef POSIX_SIGNAL
+static void sigsegv _((int, siginfo_t*, void*));
+static void
+sigsegv(sig, ip, context)
+     int sig;
+     siginfo_t *ip;
+     void *context;
+{
+#if defined(HAVE_NATIVETHREAD) && defined(HAVE_NATIVETHREAD_KILL)
+  if (!is_ruby_native_thread() && !rb_trap_accept_nativethreads[sig]) {
+    sigsend_to_ruby_thread(sig);
+    return;
+  }
+#endif
+
+  dump_machine_state(context);
+  if (check_guard((caddr_t)ip->si_addr, rb_curr_thread)) {
+    /* we hit the guard page, print out a warning to help app developers */
+    rb_bug("Thread stack overflow! Try increasing it!");
+  } else {
+    rb_bug("Segmentation fault");
+  }
+}
+
+#else /* !defined(POSIX_SIGNAL) */
+
 static RETSIGTYPE sigsegv _((int));
 static RETSIGTYPE
 sigsegv(sig)
@@ -628,6 +790,7 @@ sigsegv(sig)
 
     rb_bug("Segmentation fault");
 }
+#endif
 #endif
 
 #ifdef SIGPIPE
@@ -698,7 +861,8 @@ static VALUE
 trap(arg)
     struct trap_arg *arg;
 {
-    sighandler_t func, oldfunc;
+    sighandler_t oldfunc;
+    void *func;
     VALUE command, oldcmd;
     int sig = -1;
     char *s;
@@ -945,6 +1109,20 @@ sig_list()
 }
 
 static void
+create_sigstack()
+{
+  stack_t ss;
+  ss.ss_size = SIGSTKSZ;
+  ss.ss_sp = malloc(ss.ss_size);
+  ss.ss_flags = 0;
+  if (sigaltstack(&ss, NULL) < 0) {
+    free(ss.ss_sp);
+    fprintf(stderr, "Couldn't create signal stack! Error %d: %s\n", errno, strerror(errno));
+    exit(1);
+  }
+}
+
+static void
 install_sighandler(signum, handler)
     int signum;
     sighandler_t handler;
@@ -953,7 +1131,7 @@ install_sighandler(signum, handler)
 
     old = ruby_signal(signum, handler);
     if (old != SIG_DFL) {
-	ruby_signal(signum, old);
+       ruby_signal(signum, old);
     }
 }
 
@@ -1079,6 +1257,8 @@ Init_signal()
     rb_attr(rb_eSignal, rb_intern("signo"), 1, 0, 0);
     rb_alias(rb_eSignal, rb_intern("signm"), rb_intern("message"));
     rb_define_method(rb_eInterrupt, "initialize", interrupt_init, 1);
+
+    create_sigstack();
 
     install_sighandler(SIGINT, sighandler);
 #ifdef SIGHUP
