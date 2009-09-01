@@ -206,7 +206,8 @@ private
 	end
 	
 	def configure_ruby
-		return configure_autoconf_package('source', 'Ruby Enterprise Edition', @extra_configure_args)
+		return configure_autoconf_package('source', 'Ruby Enterprise Edition',
+			"#{@extra_configure_args} CFLAGS='-g -O2 -fno-stack-protector'")
 	end
 	
 	def compile_system_allocator
