@@ -116,6 +116,8 @@ def create_distdir(distdir = DISTDIR)
 		sh 'bison', '-y', '-o', 'parse.c', 'parse.y'
 	end
 	
+	sh "git diff zero_copy_context_switch..mbari > #{distdir}/continuations.patch"
+	
 	sh "cp distro/installer distro/installer.rb distro/platform_info.rb " <<
 		"distro/dependencies.rb distro/optparse.rb #{distdir}/"
 	sh "cd #{distdir} && ln -s source/distro/runtime ."
