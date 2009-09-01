@@ -44,9 +44,10 @@ Init_version()
     rb_define_global_const("RUBY_PLATFORM", p);
     rb_define_global_const("RUBY_PATCHLEVEL", INT2FIX(RUBY_PATCHLEVEL));
 
-    snprintf(description, sizeof(description), "ruby %s (%s %s %d) [%s]",
+    snprintf(description, sizeof(description),
+             "ruby %s (%s %s %d) [%s], Ruby Enterprise Edition %s",
              RUBY_VERSION, RUBY_RELEASE_DATE, RUBY_RELEASE_STR,
-             RUBY_RELEASE_NUM, RUBY_PLATFORM);
+             RUBY_RELEASE_NUM, RUBY_PLATFORM, REE_VERSION);
     ruby_description = description;
     tmp = rb_obj_freeze(rb_str_new2(description));
     rb_define_global_const("RUBY_DESCRIPTION", tmp);
@@ -67,7 +68,6 @@ void
 ruby_show_version()
 {
     PRINT(description);
-    printf("Ruby Enterprise Edition " REE_VERSION "\n");
     fflush(stdout);
 }
 
