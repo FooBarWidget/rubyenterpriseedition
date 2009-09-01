@@ -12345,6 +12345,7 @@ rb_thread_start_2()
     scope_dup(ruby_scope);
 
     PUSH_TAG(PROT_THREAD);
+    prot_tag->prev = NULL;
     if ((state = EXEC_TAG()) == 0) {
 	if (THREAD_SAVE_CONTEXT(th) == 0) {
 	    th->result = (*new_th.fn)(new_th.arg, th);
