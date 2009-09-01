@@ -8,7 +8,8 @@ Ruby Enterprise Edition (REE) is a server-oriented distribution of the official 
 - The ability to tweak garbage collector settings for maximum server performance.
 - The ability to inspect the garbage collector's state and the object heap state, for debugging purposes.
 - The ability to obtain backtraces for all running threads, making it easier for one to debug multithreaded applications.
-- Thread scheduler bug fixes.
+- Thread scheduler bug fixes and performance improvements. Threading on Ruby Enterprise Edition can be more than 10 times faster than official Ruby 1.8.
+- Various memory management tweaks so that the Ruby interpreter uses less memory on average, even when copy-on-write is not utilized.
 - Performance enhancements for Sparc machines.
 
 Some of these features are gathered from third party Ruby patches:
@@ -16,7 +17,8 @@ link:http://railsbench.rubyforge.org/[RailsBench],
 http://rubyforge.org/tracker/download.php/426/1700/11497/2087/ruby-track-alloc.patch[Sylvain Joyeux's object allocation patch],
 link:http://ph7spot.com/articles/caller_for_all_threads[caller_for_all_threads],
 Darryl Gove's and Miriam Blatt's link:http://blogs.sun.com/d/entry/ruby_performance_gains_on_sparc[Sparc optimization patches],
-Joe Damato's and Aman Gupta's http://timetobleed.com/ruby-threading-bugfix-small-fix-goes-a-long-way/[SIGVTALRM patch].
+Joe Damato's and Aman Gupta's http://timetobleed.com/ruby-threading-bugfix-small-fix-goes-a-long-way/[SIGVTALRM patch] and http://timetobleed.com/fixing-threads-in-ruby-18-a-2-10x-performance-boost/[zero-copy context switching patch],
+Brent Roman's http://sites.google.com/site/brentsrubypatches[MBARI patch set].
 
 
 == Installation and uninstallation
@@ -222,6 +224,19 @@ like this:
 Please note that enabling `--enable-pthread` will make the Ruby interpreter about
 50% slower. It is for this reason that we don't recommend enabling `--enable-shared`
 on server environments, although it's fine for desktop environments.
+
+=== Support for continuations and `--enable-continuations`
+
+The zero-threading context switching functionality that's included in REE is incompatible
+with continuations support. Continuations are therefore disabled by default in REE. If
+you really need continuations then you can enable support for continuations by passing
+`--enable-continuations` to the installer, like this:
+
+---------------------------------------------------------
+./ruby-enterprise-X.X.X/installer --enable-continuations
+---------------------------------------------------------
+
+Please note that doing so will result in slower threading.
 
 
 === How REE installs itself into the system
